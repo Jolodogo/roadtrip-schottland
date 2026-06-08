@@ -92,8 +92,8 @@ function WeatherWidget({ weather, location }: { weather: WeatherData | null; loc
   const now = wmoInfo(weather.code);
   const tmrw = wmoInfo(weather.tomorrowCode);
   return (
-    <div className="px-3 pb-3 space-y-2">
-      {location && <div className="text-green-400/40 text-[10px] truncate">📍 {location}</div>}
+    <div className="px-3 pb-3 space-y-3">
+      {location && <div className="text-green-400/40 text-[10px] truncate mt-1">📍 {location}</div>}
       {/* Aktuell */}
       <div className="bg-[#0f1712] border border-green-900/30 rounded-lg p-3 flex items-center justify-between">
         <div>
@@ -296,9 +296,9 @@ export default function HomePage() {
       {/* Header */}
       <header className="shrink-0 z-20 bg-[#0f1712]/90 backdrop-blur border-b border-green-900/40 px-4 py-2.5 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
-          <span className="text-xl">🏴󠁧󠁢󠁳󠁣󠁴󠁿</span>
+          <img src="/logo.png" alt="Logo" className="w-8 h-8 rounded-lg object-cover" />
           <div>
-            <h1 className="text-white font-bold text-sm leading-tight">Schottland</h1>
+            <h1 className="text-white font-bold text-sm leading-tight">Schottland-Roadtrip</h1>
             <p className="text-green-400/50 text-[11px]">
               {loading ? 'Lädt…' : `${posts.length} Posts · Tag ${tripDays > 0 ? tripDays : '–'}`}
             </p>
@@ -307,7 +307,7 @@ export default function HomePage() {
         <div className="flex items-center gap-2">
           <Link
             href="/post"
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-green-700 hover:bg-green-600 text-white text-xs font-semibold transition-colors active:scale-[0.97]"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-green-700 hover:bg-green-600 text-white text-xs font-semibold rounded-lg transition-colors active:scale-[0.97]"
           >
             + Post
           </Link>
@@ -447,7 +447,7 @@ export default function HomePage() {
                     <p className="text-green-400/40 text-sm">Noch keine Posts.</p>
                   </div>
                 ) : (
-                  posts.map((post, i) => <PostCard key={post.id} post={post} isNewest={i === 0} />)
+                  posts.map((post, i) => <PostCard key={post.id} post={post} isNewest={i === 0} onDelete={handleDelete} />)
                 )}
               </div>
               {/* Reisestats */}
