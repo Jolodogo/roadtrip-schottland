@@ -8,6 +8,8 @@ interface MapProps {
   onLocationSelect?: (lat: number, lng: number) => void;
   interactive?: boolean; // true = location picker mode
   selectedLocation?: { lat: number; lng: number } | null;
+  commentCounts?: Record<string, number>;
+  onCommentClick?: (postId: string) => void;
 }
 
 export default function Map({
@@ -15,6 +17,8 @@ export default function Map({
   onLocationSelect,
   interactive = false,
   selectedLocation,
+  commentCounts,
+  onCommentClick,
 }: MapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
@@ -78,6 +82,9 @@ export default function Map({
   useEffect(() => {
     if (!isLoaded || !mapInstanceRef.current) return;
 
+    // Globaler Callback für Popup-Buttons (Leaflet HTML kann keine React-Props aufrufen)
+    (window as any).__mapCommentClick = onCommentClick;
+
     import('leaflet').then((L) => {
       // Clear old markers
       markersRef.current.forEach((m) => m.remove());
@@ -125,6 +132,10 @@ export default function Map({
               <div style="font-size: 11px; color: #4ade80; margin-bottom: 4px;">${dateStr}${post.location_name ? ` · ${post.location_name}` : ''}</div>
               <div style="font-size: 15px; font-weight: 600; margin-bottom: 6px; line-height: 1.3;">${post.title}</div>
               ${post.text ? `<div style="font-size: 13px; color: #bbf7d0; line-height: 1.5;">${post.text}</div>` : ''}
+              <button
+                onclick="if(window.__mapCommentClick)window.__mapCommentClick('${post.id}')"
+                style="margin-top:10px;width:100%;background:#14532d;border:1px solid #166534;color:#86efac;font-size:12px;padding:6px 10px;border-radius:8px;cursor:pointer;text-align:left;"
+              >💬 ${commentCounts?.[post.id] || 0} Kommentar${(commentCounts?.[post.id] || 0) !== 1 ? 'e' : ''} anzeigen / schreiben</button>
             </div>
           </div>
         `;
@@ -146,7 +157,7 @@ export default function Map({
         });
       }
     });
-  }, [posts, isLoaded, interactive]);
+  }, [posts, isLoaded, interactive, commentCounts, onCommentClick]);
 
   // Straßenroute zwischen Posts (OSRM)
   useEffect(() => {

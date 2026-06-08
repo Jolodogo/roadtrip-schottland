@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
-import { Post } from '@/lib/types';
+import { Post, Comment } from '@/lib/types';
 
 const Map = dynamic(() => import('@/components/Map'), {
   ssr: false,
@@ -129,13 +129,88 @@ function formatDate(dateStr: string) {
   });
 }
 
-function PostCard({ post, isNewest, onDelete }: { post: Post; isNewest: boolean; onDelete?: (id: string) => void }) {
+function PostCard({
+  post, isNewest, onDelete, commentCount: initialCount = 0, autoOpenComments = false,
+}: {
+  post: Post;
+  isNewest: boolean;
+  onDelete?: (id: string) => void;
+  commentCount?: number;
+  autoOpenComments?: boolean;
+}) {
+  const cardRef = useRef<HTMLDivElement>(null);
   const [deleting, setDeleting] = useState(false);
   const [passcode, setPasscode] = useState('');
-  const [error, setError] = useState('');
+  const [deleteError, setDeleteError] = useState('');
+
+  const [commentsOpen, setCommentsOpen] = useState(false);
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [commentsLoaded, setCommentsLoaded] = useState(false);
+  const [commentsLoading, setCommentsLoading] = useState(false);
+  const [commentCount, setCommentCount] = useState(initialCount);
+  const [authorName, setAuthorName] = useState('');
+  const [commentText, setCommentText] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
+
+  // Gespeicherten Namen aus localStorage laden
+  useEffect(() => {
+    const saved = localStorage.getItem('comment_author');
+    if (saved) setAuthorName(saved);
+  }, []);
+
+  // Von Karte aus aufgerufen: scrollen + öffnen
+  useEffect(() => {
+    if (!autoOpenComments) return;
+    setCommentsOpen(true);
+    if (!commentsLoaded) loadComments();
+    setTimeout(() => cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 350);
+  }, [autoOpenComments]);
+
+  async function loadComments() {
+    setCommentsLoading(true);
+    const res = await fetch(`/api/comments?post_id=${post.id}`);
+    if (res.ok) {
+      const data: Comment[] = await res.json();
+      setComments(data);
+      setCommentCount(data.length);
+      setCommentsLoaded(true);
+    }
+    setCommentsLoading(false);
+  }
+
+  function toggleComments() {
+    const opening = !commentsOpen;
+    setCommentsOpen(opening);
+    if (opening && !commentsLoaded) loadComments();
+  }
+
+  async function handleSubmitComment() {
+    if (!authorName.trim() || !commentText.trim() || submitting) return;
+    setSubmitting(true);
+    setSubmitError('');
+    localStorage.setItem('comment_author', authorName.trim());
+
+    const res = await fetch('/api/comments', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ post_id: post.id, author_name: authorName.trim(), text: commentText.trim() }),
+    });
+
+    if (res.ok) {
+      const newComment: Comment = await res.json();
+      setComments((prev) => [...prev, newComment]);
+      setCommentCount((prev) => prev + 1);
+      setCommentText('');
+    } else {
+      const d = await res.json();
+      setSubmitError(d.error || 'Fehler beim Senden');
+    }
+    setSubmitting(false);
+  }
 
   async function handleDelete() {
-    setError('');
+    setDeleteError('');
     const res = await fetch('/api/posts', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
@@ -145,12 +220,12 @@ function PostCard({ post, isNewest, onDelete }: { post: Post; isNewest: boolean;
       onDelete?.(post.id);
     } else {
       const d = await res.json();
-      setError(d.error || 'Fehler');
+      setDeleteError(d.error || 'Fehler');
     }
   }
 
   return (
-    <div className={`rounded-xl overflow-hidden bg-[#1a2e1f] border transition-all ${
+    <div ref={cardRef} className={`rounded-xl overflow-hidden bg-[#1a2e1f] border transition-all ${
       isNewest ? 'border-green-500/50 shadow-lg shadow-green-900/20' : 'border-green-900/30'
     }`}>
       {post.image_url && (
@@ -170,7 +245,7 @@ function PostCard({ post, isNewest, onDelete }: { post: Post; isNewest: boolean;
             )}
             {onDelete && (
               <button
-                onClick={() => { setDeleting(!deleting); setError(''); setPasscode(''); }}
+                onClick={() => { setDeleting(!deleting); setDeleteError(''); setPasscode(''); }}
                 className="text-red-400/40 hover:text-red-400 text-xs px-1"
                 title="Löschen"
               >🗑️</button>
@@ -181,7 +256,6 @@ function PostCard({ post, isNewest, onDelete }: { post: Post; isNewest: boolean;
         {post.text && (
           <p className="text-green-100/60 text-xs leading-relaxed line-clamp-3">{post.text}</p>
         )}
-        {/* Passcode-Eingabe zum Löschen */}
         {deleting && (
           <div className="mt-2 flex gap-1">
             <input
@@ -193,16 +267,78 @@ function PostCard({ post, isNewest, onDelete }: { post: Post; isNewest: boolean;
               className="flex-1 bg-[#0f1712] border border-red-900/50 text-white text-xs px-2 py-1 rounded outline-none"
               autoFocus
             />
-            <button
-              onClick={handleDelete}
-              className="bg-red-800 hover:bg-red-700 text-white text-xs px-2 py-1 rounded"
-            >
+            <button onClick={handleDelete} className="bg-red-800 hover:bg-red-700 text-white text-xs px-2 py-1 rounded">
               Löschen
             </button>
           </div>
         )}
-        {error && <p className="text-red-400 text-[10px] mt-1">{error}</p>}
+        {deleteError && <p className="text-red-400 text-[10px] mt-1">{deleteError}</p>}
       </div>
+
+      {/* Kommentar-Toggle */}
+      <button
+        onClick={toggleComments}
+        className="w-full flex items-center justify-between px-3 py-2 border-t border-green-900/20 text-green-400/50 hover:text-green-400/80 transition-colors text-xs"
+      >
+        <span>💬 {commentCount === 1 ? '1 Kommentar' : `${commentCount} Kommentare`}</span>
+        <span>{commentsOpen ? '▲' : '▼'}</span>
+      </button>
+
+      {commentsOpen && (
+        <div className="border-t border-green-900/20 bg-[#111e14]">
+          {commentsLoading ? (
+            <div className="text-center py-4 text-green-500/30 text-xs animate-pulse">Lädt…</div>
+          ) : (
+            <div className="p-3 space-y-2">
+              {comments.length === 0 ? (
+                <p className="text-green-400/30 text-xs text-center py-1">Noch kein Kommentar – sei der erste!</p>
+              ) : (
+                comments.map((c) => (
+                  <div key={c.id} className="bg-[#1a2e1f] rounded-lg px-3 py-2">
+                    <div className="flex items-baseline gap-2 mb-0.5">
+                      <span className="text-green-300/80 text-xs font-semibold">{c.author_name}</span>
+                      <span className="text-green-400/30 text-[10px]">
+                        {new Date(c.created_at).toLocaleDateString('de-DE', {
+                          day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
+                        })}
+                      </span>
+                    </div>
+                    <p className="text-green-100/70 text-xs leading-relaxed">{c.text}</p>
+                  </div>
+                ))
+              )}
+
+              {/* Kommentar schreiben */}
+              <div className="pt-1 space-y-1.5 border-t border-green-900/20 mt-2">
+                <input
+                  type="text"
+                  placeholder="Dein Name *"
+                  value={authorName}
+                  onChange={(e) => setAuthorName(e.target.value)}
+                  maxLength={50}
+                  className="w-full bg-[#0f1712] border border-green-900/40 text-white text-xs px-2.5 py-1.5 rounded-lg outline-none focus:border-green-700/60 placeholder-green-400/30"
+                />
+                <textarea
+                  placeholder="Kommentar schreiben…"
+                  value={commentText}
+                  onChange={(e) => setCommentText(e.target.value)}
+                  maxLength={500}
+                  rows={2}
+                  className="w-full bg-[#0f1712] border border-green-900/40 text-white text-xs px-2.5 py-1.5 rounded-lg outline-none focus:border-green-700/60 placeholder-green-400/30 resize-none"
+                />
+                {submitError && <p className="text-red-400 text-[10px]">{submitError}</p>}
+                <button
+                  onClick={handleSubmitComment}
+                  disabled={submitting || !authorName.trim() || !commentText.trim()}
+                  className="w-full bg-green-700 hover:bg-green-600 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs py-1.5 rounded-lg font-semibold transition-colors"
+                >
+                  {submitting ? 'Sendet…' : 'Kommentar senden'}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -214,6 +350,8 @@ export default function HomePage() {
   const [newPostCount, setNewPostCount] = useState(0);
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [weatherLocation, setWeatherLocation] = useState<string | null>(null);
+  const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});
+  const [openCommentForPost, setOpenCommentForPost] = useState<string | null>(null);
   const touchStartY = useRef<number | null>(null);
 
   const fetchPosts = useCallback(async () => {
@@ -283,6 +421,22 @@ export default function HomePage() {
       .catch(() => {});
   }, [posts]);
 
+  // Kommentar-Anzahlen laden sobald Posts da sind
+  useEffect(() => {
+    if (posts.length === 0) return;
+    fetch('/api/comments')
+      .then((r) => r.json())
+      .then((data) => setCommentCounts(data))
+      .catch(() => {});
+  }, [posts.length]);
+
+  // Von Karte aus: Bottom Sheet öffnen + Kommentare für Post öffnen
+  const handleMapCommentClick = useCallback((postId: string) => {
+    setOpenCommentForPost(postId);
+    setSheetExpanded(true);
+    setTimeout(() => setOpenCommentForPost(null), 1500);
+  }, []);
+
   const handleDelete = useCallback((id: string) => {
     setPosts((prev) => prev.filter((p) => p.id !== id));
   }, []);
@@ -318,7 +472,7 @@ export default function HomePage() {
       <div className="flex-1 flex overflow-hidden relative">
         {/* Map — z-0 + isolate: eigene Stacking-Context, Leaflet-interne z-Indizes bleiben eingeschlossen */}
         <div className="flex-1 relative z-0 isolate">
-          <Map posts={posts} />
+          <Map posts={posts} commentCounts={commentCounts} onCommentClick={handleMapCommentClick} />
 
           {/* Live indicator */}
           <div className="absolute top-3 left-3 z-10 flex items-center gap-1.5 bg-[#0f1712]/80 backdrop-blur px-2.5 py-1 rounded-full border border-green-900/40">
@@ -347,7 +501,8 @@ export default function HomePage() {
                 </div>
               ) : (
                 posts.map((post, i) => (
-                  <PostCard key={post.id} post={post} isNewest={i === 0} onDelete={handleDelete} />
+                  <PostCard key={post.id} post={post} isNewest={i === 0} onDelete={handleDelete}
+                    commentCount={commentCounts[post.id] || 0} />
                 ))
               )}
             </div>
@@ -447,7 +602,11 @@ export default function HomePage() {
                     <p className="text-green-400/40 text-sm">Noch keine Posts.</p>
                   </div>
                 ) : (
-                  posts.map((post, i) => <PostCard key={post.id} post={post} isNewest={i === 0} onDelete={handleDelete} />)
+                  posts.map((post, i) => (
+                    <PostCard key={post.id} post={post} isNewest={i === 0} onDelete={handleDelete}
+                      commentCount={commentCounts[post.id] || 0}
+                      autoOpenComments={openCommentForPost === post.id} />
+                  ))
                 )}
               </div>
               {/* Reisestats */}

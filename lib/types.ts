@@ -10,6 +10,14 @@ export interface Post {
   day_number: number | null;
 }
 
+export interface Comment {
+  id: string;
+  created_at: string;
+  post_id: string;
+  author_name: string;
+  text: string;
+}
+
 export interface CreatePostPayload {
   title: string;
   text?: string;

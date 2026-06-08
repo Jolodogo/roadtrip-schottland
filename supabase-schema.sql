@@ -37,3 +37,23 @@ CREATE POLICY "Öffentliche Fotos lesbar"
 
 -- Optional: Realtime für die posts Tabelle aktivieren
 -- (Im Supabase Dashboard unter Database → Replication → posts aktivieren)
+
+-- ============================================================
+-- NEU: Kommentare (manuell im SQL Editor ausführen)
+-- ============================================================
+
+CREATE TABLE comments (
+  id          UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  created_at  TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+  post_id     UUID NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+  author_name TEXT NOT NULL,
+  text        TEXT NOT NULL
+);
+
+ALTER TABLE comments ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Jeder kann Kommentare lesen"
+  ON comments FOR SELECT
+  USING (true);
+
+-- Schreiben via Service Role Key (API Route) – kein direktes Client-INSERT nötig
