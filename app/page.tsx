@@ -386,6 +386,7 @@ export default function HomePage() {
   const [weatherLocation, setWeatherLocation] = useState<string | null>(null);
   const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});
   const [openCommentForPost, setOpenCommentForPost] = useState<string | null>(null);
+  const [mapLightboxSrc, setMapLightboxSrc] = useState<string | null>(null);
   const touchStartY = useRef<number | null>(null);
 
   const fetchPosts = useCallback(async () => {
@@ -502,11 +503,20 @@ export default function HomePage() {
         </div>
       </header>
 
+      {/* Lightbox für Map-Popup Bilder */}
+      {mapLightboxSrc && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 z-[9999] bg-black/90 flex items-center justify-center" onClick={() => setMapLightboxSrc(null)}>
+          <button onClick={() => setMapLightboxSrc(null)} className="absolute top-4 right-4 bg-white/10 hover:bg-white/20 text-white rounded-full w-10 h-10 flex items-center justify-center text-lg">✕</button>
+          <img src={mapLightboxSrc} className="max-w-full max-h-full object-contain p-4" onClick={(e) => e.stopPropagation()} />
+        </div>,
+        document.body
+      )}
+
       {/* Main layout */}
       <div className="flex-1 flex overflow-hidden relative">
         {/* Map — z-0 + isolate: eigene Stacking-Context, Leaflet-interne z-Indizes bleiben eingeschlossen */}
         <div className="flex-1 relative z-0 isolate">
-          <Map posts={posts} commentCounts={commentCounts} onCommentClick={handleMapCommentClick} />
+          <Map posts={posts} commentCounts={commentCounts} onCommentClick={handleMapCommentClick} onImageExpand={setMapLightboxSrc} />
 
           {/* Live indicator */}
           <div className="absolute top-3 left-3 z-10 flex items-center gap-1.5 bg-[#0f1712]/80 backdrop-blur px-2.5 py-1 rounded-full border border-green-900/40">
@@ -579,7 +589,7 @@ export default function HomePage() {
             <div className="w-10 h-1 bg-green-700/50 rounded-full mb-2" />
             <div className="w-full flex items-center justify-between px-4">
               <span className="text-green-300/60 text-[10px] font-semibold uppercase tracking-wider">
-                {sheetExpanded ? 'Updates' : (posts.length > 0 ? posts[0].title : 'Noch keine Posts')}
+                Updates
               </span>
               {newPostCount > 0 && (
                 <span className="bg-green-500 text-white text-[10px] px-2 py-0.5 rounded-full font-bold">

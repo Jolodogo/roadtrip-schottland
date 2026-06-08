@@ -36,13 +36,23 @@ export default function PostPage() {
     }
   }, []);
 
-  const handlePasscode = (e: React.FormEvent) => {
+  const handlePasscode = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (passcode.trim().length < 3) {
-      setPasscodeError('Passcode zu kurz');
+    if (!passcode.trim()) {
+      setPasscodeError('Passcode eingeben');
       return;
     }
-    // Optimistic: store and move to form, API will reject if wrong
+    setPasscodeError('');
+    const res = await fetch('/api/auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ passcode: passcode.trim() }),
+    });
+    const { valid } = await res.json();
+    if (!valid) {
+      setPasscodeError('Falscher Passcode');
+      return;
+    }
     sessionStorage.setItem('trip_passcode', passcode.trim());
     setStep('form');
   };

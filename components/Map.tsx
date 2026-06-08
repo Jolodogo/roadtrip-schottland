@@ -10,6 +10,7 @@ interface MapProps {
   selectedLocation?: { lat: number; lng: number } | null;
   commentCounts?: Record<string, number>;
   onCommentClick?: (postId: string) => void;
+  onImageExpand?: (url: string) => void;
 }
 
 export default function Map({
@@ -19,6 +20,7 @@ export default function Map({
   selectedLocation,
   commentCounts,
   onCommentClick,
+  onImageExpand,
 }: MapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
@@ -82,8 +84,9 @@ export default function Map({
   useEffect(() => {
     if (!isLoaded || !mapInstanceRef.current) return;
 
-    // Globaler Callback für Popup-Buttons (Leaflet HTML kann keine React-Props aufrufen)
+    // Globale Callbacks für Popup-Buttons (Leaflet HTML kann keine React-Props aufrufen)
     (window as any).__mapCommentClick = onCommentClick;
+    (window as any).__mapImageExpand = onImageExpand;
 
     import('leaflet').then((L) => {
       // Clear old markers
@@ -123,9 +126,13 @@ export default function Map({
         const popupContent = `
           <div style="font-family: Inter, sans-serif; color: #f0f8f0; min-width: 200px;">
             ${post.image_url ? `
-              <div style="margin: -1px -1px 0; overflow: hidden; border-radius: 12px 12px 0 0;">
+              <div style="position:relative;margin:-1px -1px 0;overflow:hidden;border-radius:12px 12px 0 0;">
                 <img src="${post.image_url}" alt="${post.title}"
-                  style="width: 100%; height: 160px; object-fit: cover; display: block;" />
+                  style="width:100%;height:160px;object-fit:cover;display:block;" />
+                <button
+                  onclick="if(window.__mapImageExpand)window.__mapImageExpand('${post.image_url}')"
+                  style="position:absolute;bottom:8px;right:8px;background:rgba(0,0,0,0.55);color:white;border:none;border-radius:8px;padding:5px 7px;cursor:pointer;line-height:1;"
+                >⤢</button>
               </div>
             ` : ''}
             <div style="padding: 12px;">
@@ -157,7 +164,7 @@ export default function Map({
         });
       }
     });
-  }, [posts, isLoaded, interactive, commentCounts, onCommentClick]);
+  }, [posts, isLoaded, interactive, commentCounts, onCommentClick, onImageExpand]);
 
   // Straßenroute zwischen Posts (OSRM)
   useEffect(() => {
