@@ -177,7 +177,7 @@ export default function PostPage() {
         <div className="w-full max-w-sm">
           <div className="text-center mb-8">
             <div className="text-5xl mb-3">🔑</div>
-            <h1 className="text-2xl font-bold text-white mb-1">Scotland Trip</h1>
+            <h1 className="text-2xl font-bold text-white mb-1">Schottland-Roadtrip</h1>
             <p className="text-green-200/50 text-sm">Passcode zum Posten eingeben</p>
           </div>
           <form onSubmit={handlePasscode} className="space-y-4">
