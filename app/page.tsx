@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
@@ -245,10 +246,10 @@ function PostCard({
         </div>
       )}
 
-      {/* Lightbox */}
-      {lightboxOpen && post.image_url && (
+      {/* Lightbox — via Portal in document.body, umgeht CSS-transform des Bottom Sheets */}
+      {lightboxOpen && post.image_url && typeof document !== 'undefined' && createPortal(
         <div
-          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center"
+          className="fixed inset-0 z-[9999] bg-black/90 flex items-center justify-center"
           onClick={() => setLightboxOpen(false)}
         >
           <button
@@ -261,7 +262,8 @@ function PostCard({
             className="max-w-full max-h-full object-contain p-4"
             onClick={(e) => e.stopPropagation()}
           />
-        </div>
+        </div>,
+        document.body
       )}
       <div className="p-3">
         <div className="flex items-start justify-between gap-2 mb-1">
