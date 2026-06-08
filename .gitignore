@@ -1,0 +1,13 @@
+# Abhängigkeiten
+node_modules/
+
+# Next.js Build-Output
+.next/
+out/
+
+# Umgebungsvariablen – NIEMALS committen
+.env.local
+.env*.local
+
+# Systemdateien
+.DS_Store
