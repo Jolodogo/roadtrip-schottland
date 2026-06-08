@@ -5,6 +5,19 @@
 /* Leaflet base styles */
 @import 'leaflet/dist/leaflet.css';
 
+/* Attribution dezent */
+.leaflet-control-attribution {
+  font-size: 9px !important;
+  opacity: 0.35 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: #000 !important;
+}
+
+.leaflet-control-attribution a {
+  color: #000 !important;
+}
+
 :root {
   --foreground-rgb: 240, 248, 240;
   --background-start-rgb: 15, 23, 18;

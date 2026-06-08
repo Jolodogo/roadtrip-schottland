@@ -2,13 +2,17 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: '🏴󠁧󠁢󠁳󠁣󠁴󠁿 Scotland Roadtrip',
-  description: 'Live tracking unseres Schottland Roadtrips',
+  title: 'Schottland',
+  description: 'Live-Tracking unseres Schottland Roadtrips',
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'Scotland Trip',
+    title: 'Schottland',
+  },
+  icons: {
+    apple: '/icon.svg',
+    icon: '/icon.svg',
   },
 };
 

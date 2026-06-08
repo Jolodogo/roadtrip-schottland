@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180">
+  <!-- Dunkelgrüner Hintergrund -->
+  <rect width="180" height="180" fill="#0f1712" rx="32"/>
+  <!-- Schottische Flagge (Saltire) -->
+  <rect x="20" y="45" width="140" height="90" fill="#0065BD" rx="6"/>
+  <!-- Weißes Andreaskreuz -->
+  <line x1="20" y1="45" x2="160" y2="135" stroke="white" stroke-width="20" stroke-linecap="round"/>
+  <line x1="160" y1="45" x2="20" y2="135" stroke="white" stroke-width="20" stroke-linecap="round"/>
+</svg>

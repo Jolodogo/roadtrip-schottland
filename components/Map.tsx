@@ -19,11 +19,14 @@ export default function Map({
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
+  const routeLinesRef = useRef<any[]>([]);
   const selectionMarkerRef = useRef<any>(null);
+  const initializingRef = useRef(false);
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
-    if (!mapRef.current || mapInstanceRef.current) return;
+    if (!mapRef.current || mapInstanceRef.current || initializingRef.current) return;
+    initializingRef.current = true;
 
     // Dynamic import to avoid SSR issues
     import('leaflet').then((L) => {
@@ -44,7 +47,7 @@ export default function Map({
 
       // OpenStreetMap tile layer — dark-ish style via CartoDB
       L.tileLayer(
-        'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+        'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
         {
           attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
           subdomains: 'abcd',
@@ -141,6 +144,50 @@ export default function Map({
         mapInstanceRef.current.fitBounds(group.getBounds().pad(0.2), {
           maxZoom: 10,
         });
+      }
+    });
+  }, [posts, isLoaded, interactive]);
+
+  // Straßenroute zwischen Posts (OSRM)
+  useEffect(() => {
+    if (!isLoaded || !mapInstanceRef.current || interactive) return;
+    if (posts.length < 2) return;
+
+    const sorted = [...posts].sort((a, b) =>
+      new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    );
+
+    import('leaflet').then(async (L) => {
+      // Alte Routen entfernen
+      routeLinesRef.current.forEach((l) => l.remove());
+      routeLinesRef.current = [];
+
+      const lineStyle = { color: '#16a34a', weight: 3, opacity: 0.7, dashArray: '8 6' };
+
+      for (let i = 0; i < sorted.length - 1; i++) {
+        const a = sorted[i];
+        const b = sorted[i + 1];
+        try {
+          const res = await fetch(
+            `https://router.project-osrm.org/route/v1/driving/${a.longitude},${a.latitude};${b.longitude},${b.latitude}?overview=full&geometries=geojson`
+          );
+          const data = await res.json();
+          if (data.routes?.[0]?.geometry?.coordinates) {
+            // OSRM gibt [lon, lat] — Leaflet braucht [lat, lon]
+            const latlngs = data.routes[0].geometry.coordinates.map(
+              ([lon, lat]: [number, number]) => [lat, lon] as [number, number]
+            );
+            const line = L.polyline(latlngs, lineStyle).addTo(mapInstanceRef.current);
+            routeLinesRef.current.push(line);
+          }
+        } catch {
+          // Fallback: Luftlinie
+          const line = L.polyline(
+            [[a.latitude, a.longitude], [b.latitude, b.longitude]],
+            { ...lineStyle, dashArray: '4 8', opacity: 0.4 }
+          ).addTo(mapInstanceRef.current);
+          routeLinesRef.current.push(line);
+        }
       }
     });
   }, [posts, isLoaded, interactive]);
