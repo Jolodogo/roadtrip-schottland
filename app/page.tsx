@@ -131,13 +131,14 @@ function formatDate(dateStr: string) {
 }
 
 function PostCard({
-  post, isNewest, onDelete, commentCount: initialCount = 0, likeCount: initialLikes = 0, autoOpenComments = false,
+  post, isNewest, onDelete, commentCount: initialCount = 0, likeCount: initialLikes = 0, autoScrollTo = false, autoOpenComments = false,
 }: {
   post: Post;
   isNewest: boolean;
   onDelete?: (id: string) => void;
   commentCount?: number;
   likeCount?: number;
+  autoScrollTo?: boolean;
   autoOpenComments?: boolean;
 }) {
   const cardRef = useRef<HTMLDivElement>(null);
@@ -183,6 +184,12 @@ function PostCard({
     const saved = localStorage.getItem('comment_author');
     if (saved) setAuthorName(saved);
   }, []);
+
+  // Von Karte aus: nur scrollen (für Like-Button)
+  useEffect(() => {
+    if (!autoScrollTo) return;
+    setTimeout(() => cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 350);
+  }, [autoScrollTo]);
 
   // Von Karte aus aufgerufen: scrollen + öffnen
   useEffect(() => {
@@ -422,6 +429,7 @@ export default function HomePage() {
   const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});
   const [likeCounts, setLikeCounts] = useState<Record<string, number>>({});
   const [openCommentForPost, setOpenCommentForPost] = useState<string | null>(null);
+  const [scrollToPost, setScrollToPost] = useState<string | null>(null);
   const [mapLightboxSrc, setMapLightboxSrc] = useState<string | null>(null);
   const touchStartY = useRef<number | null>(null);
 
@@ -499,7 +507,12 @@ export default function HomePage() {
     fetch('/api/reactions').then((r) => r.json()).then(setLikeCounts).catch(() => {});
   }, [posts.length]);
 
-  // Von Karte aus: Bottom Sheet öffnen + Kommentare für Post öffnen
+  const handleMapLikeClick = useCallback((postId: string) => {
+    setScrollToPost(postId);
+    setSheetExpanded(true);
+    setTimeout(() => setScrollToPost(null), 1500);
+  }, []);
+
   const handleMapCommentClick = useCallback((postId: string) => {
     setOpenCommentForPost(postId);
     setSheetExpanded(true);
@@ -550,7 +563,7 @@ export default function HomePage() {
       <div className="flex-1 flex overflow-hidden relative">
         {/* Map — z-0 + isolate: eigene Stacking-Context, Leaflet-interne z-Indizes bleiben eingeschlossen */}
         <div className="flex-1 relative z-0 isolate">
-          <Map posts={posts} commentCounts={commentCounts} likeCounts={likeCounts} onCommentClick={handleMapCommentClick} onImageExpand={setMapLightboxSrc} />
+          <Map posts={posts} commentCounts={commentCounts} likeCounts={likeCounts} onLikeClick={handleMapLikeClick} onCommentClick={handleMapCommentClick} onImageExpand={setMapLightboxSrc} />
 
           {/* Live indicator */}
           <div className="absolute top-3 left-3 z-10 flex items-center gap-1.5 bg-[#0f1712]/80 backdrop-blur px-2.5 py-1 rounded-full border border-green-900/40">
@@ -581,7 +594,8 @@ export default function HomePage() {
                 posts.map((post, i) => (
                   <PostCard key={post.id} post={post} isNewest={i === 0} onDelete={handleDelete}
                     commentCount={commentCounts[post.id] || 0}
-                    likeCount={likeCounts[post.id] || 0} />
+                    likeCount={likeCounts[post.id] || 0}
+                    autoScrollTo={scrollToPost === post.id} />
                 ))
               )}
             </div>
@@ -685,6 +699,7 @@ export default function HomePage() {
                     <PostCard key={post.id} post={post} isNewest={i === 0} onDelete={handleDelete}
                       commentCount={commentCounts[post.id] || 0}
                       likeCount={likeCounts[post.id] || 0}
+                      autoScrollTo={scrollToPost === post.id}
                       autoOpenComments={openCommentForPost === post.id} />
                   ))
                 )}
