@@ -9,6 +9,7 @@ interface MapProps {
   interactive?: boolean; // true = location picker mode
   selectedLocation?: { lat: number; lng: number } | null;
   commentCounts?: Record<string, number>;
+  likeCounts?: Record<string, number>;
   onCommentClick?: (postId: string) => void;
   onImageExpand?: (url: string) => void;
 }
@@ -19,6 +20,7 @@ export default function Map({
   interactive = false,
   selectedLocation,
   commentCounts,
+  likeCounts,
   onCommentClick,
   onImageExpand,
 }: MapProps) {
@@ -139,10 +141,15 @@ export default function Map({
               <div style="font-size: 11px; color: #4ade80; margin-bottom: 4px;">${dateStr}${post.location_name ? ` · ${post.location_name}` : ''}</div>
               <div style="font-size: 15px; font-weight: 600; margin-bottom: 6px; line-height: 1.3;">${post.title}</div>
               ${post.text ? `<div style="font-size: 13px; color: #bbf7d0; line-height: 1.5;">${post.text}</div>` : ''}
-              <button
-                onclick="if(window.__mapCommentClick)window.__mapCommentClick('${post.id}')"
-                style="margin-top:10px;width:100%;background:#14532d;border:1px solid #166534;color:#86efac;font-size:12px;padding:6px 10px;border-radius:8px;cursor:pointer;text-align:left;"
-              >💬 ${commentCounts?.[post.id] || 0} Kommentar${(commentCounts?.[post.id] || 0) !== 1 ? 'e' : ''} anzeigen / schreiben</button>
+              <div style="margin-top:10px;display:flex;gap:8px;">
+                <div style="background:#1a1a1a;border:1px solid #2a2a2a;color:#f87171;font-size:12px;padding:6px 10px;border-radius:8px;min-width:48px;text-align:center;">
+                  ❤️ ${likeCounts?.[post.id] || 0}
+                </div>
+                <button
+                  onclick="if(window.__mapCommentClick)window.__mapCommentClick('${post.id}')"
+                  style="flex:1;background:#14532d;border:1px solid #166534;color:#86efac;font-size:12px;padding:6px 10px;border-radius:8px;cursor:pointer;text-align:left;"
+                >💬 ${commentCounts?.[post.id] || 0} Kommentar${(commentCounts?.[post.id] || 0) !== 1 ? 'e' : ''}</button>
+              </div>
             </div>
           </div>
         `;
@@ -164,7 +171,7 @@ export default function Map({
         });
       }
     });
-  }, [posts, isLoaded, interactive, commentCounts, onCommentClick, onImageExpand]);
+  }, [posts, isLoaded, interactive, commentCounts, likeCounts, onCommentClick, onImageExpand]);
 
   // Straßenroute zwischen Posts (OSRM)
   useEffect(() => {

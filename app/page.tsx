@@ -550,7 +550,7 @@ export default function HomePage() {
       <div className="flex-1 flex overflow-hidden relative">
         {/* Map — z-0 + isolate: eigene Stacking-Context, Leaflet-interne z-Indizes bleiben eingeschlossen */}
         <div className="flex-1 relative z-0 isolate">
-          <Map posts={posts} commentCounts={commentCounts} onCommentClick={handleMapCommentClick} onImageExpand={setMapLightboxSrc} />
+          <Map posts={posts} commentCounts={commentCounts} likeCounts={likeCounts} onCommentClick={handleMapCommentClick} onImageExpand={setMapLightboxSrc} />
 
           {/* Live indicator */}
           <div className="absolute top-3 left-3 z-10 flex items-center gap-1.5 bg-[#0f1712]/80 backdrop-blur px-2.5 py-1 rounded-full border border-green-900/40">
