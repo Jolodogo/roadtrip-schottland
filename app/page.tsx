@@ -131,18 +131,41 @@ function formatDate(dateStr: string) {
 }
 
 function PostCard({
-  post, isNewest, onDelete, commentCount: initialCount = 0, autoOpenComments = false,
+  post, isNewest, onDelete, commentCount: initialCount = 0, likeCount: initialLikes = 0, autoOpenComments = false,
 }: {
   post: Post;
   isNewest: boolean;
   onDelete?: (id: string) => void;
   commentCount?: number;
+  likeCount?: number;
   autoOpenComments?: boolean;
 }) {
   const cardRef = useRef<HTMLDivElement>(null);
   const [deleting, setDeleting] = useState(false);
   const [passcode, setPasscode] = useState('');
   const [deleteError, setDeleteError] = useState('');
+
+  const [likes, setLikes] = useState(initialLikes);
+  const [liked, setLiked] = useState(false);
+  const [liking, setLiking] = useState(false);
+
+  useEffect(() => { setLiked(!!localStorage.getItem(`liked_${post.id}`)); }, [post.id]);
+
+  async function handleLike() {
+    if (liked || liking) return;
+    setLiking(true);
+    const res = await fetch('/api/reactions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ post_id: post.id }),
+    });
+    if (res.ok) {
+      setLikes((n) => n + 1);
+      setLiked(true);
+      localStorage.setItem(`liked_${post.id}`, '1');
+    }
+    setLiking(false);
+  }
 
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [commentsOpen, setCommentsOpen] = useState(false);
@@ -309,14 +332,26 @@ function PostCard({
         {deleteError && <p className="text-red-400 text-[10px] mt-1">{deleteError}</p>}
       </div>
 
-      {/* Kommentar-Toggle */}
-      <button
-        onClick={toggleComments}
-        className="w-full flex items-center justify-between px-3 py-2 border-t border-green-900/20 text-green-400/50 hover:text-green-400/80 transition-colors text-xs"
-      >
+      {/* Like + Kommentar-Leiste */}
+      <div className="flex items-center border-t border-green-900/20">
+        <button
+          onClick={handleLike}
+          disabled={liked || liking}
+          className={`flex items-center gap-1.5 px-3 py-2 text-xs transition-colors ${liked ? 'text-red-400' : 'text-green-400/40 hover:text-red-400/70'}`}
+          title={liked ? 'Bereits geliked' : 'Liken'}
+        >
+          <span>{liked ? '❤️' : '🤍'}</span>
+          <span>{likes > 0 ? likes : ''}</span>
+        </button>
+        <div className="w-px h-4 bg-green-900/20" />
+        <button
+          onClick={toggleComments}
+          className="flex-1 flex items-center justify-between px-3 py-2 text-green-400/50 hover:text-green-400/80 transition-colors text-xs"
+        >
         <span>💬 {commentCount === 1 ? '1 Kommentar' : `${commentCount} Kommentare`}</span>
-        <span>{commentsOpen ? '▲' : '▼'}</span>
-      </button>
+          <span>{commentsOpen ? '▲' : '▼'}</span>
+        </button>
+      </div>
 
       {commentsOpen && (
         <div className="border-t border-green-900/20 bg-[#111e14]">
@@ -385,6 +420,7 @@ export default function HomePage() {
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [weatherLocation, setWeatherLocation] = useState<string | null>(null);
   const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});
+  const [likeCounts, setLikeCounts] = useState<Record<string, number>>({});
   const [openCommentForPost, setOpenCommentForPost] = useState<string | null>(null);
   const [mapLightboxSrc, setMapLightboxSrc] = useState<string | null>(null);
   const touchStartY = useRef<number | null>(null);
@@ -456,13 +492,11 @@ export default function HomePage() {
       .catch(() => {});
   }, [posts]);
 
-  // Kommentar-Anzahlen laden sobald Posts da sind
+  // Kommentar- und Like-Anzahlen laden sobald Posts da sind
   useEffect(() => {
     if (posts.length === 0) return;
-    fetch('/api/comments')
-      .then((r) => r.json())
-      .then((data) => setCommentCounts(data))
-      .catch(() => {});
+    fetch('/api/comments').then((r) => r.json()).then(setCommentCounts).catch(() => {});
+    fetch('/api/reactions').then((r) => r.json()).then(setLikeCounts).catch(() => {});
   }, [posts.length]);
 
   // Von Karte aus: Bottom Sheet öffnen + Kommentare für Post öffnen
@@ -546,7 +580,8 @@ export default function HomePage() {
               ) : (
                 posts.map((post, i) => (
                   <PostCard key={post.id} post={post} isNewest={i === 0} onDelete={handleDelete}
-                    commentCount={commentCounts[post.id] || 0} />
+                    commentCount={commentCounts[post.id] || 0}
+                    likeCount={likeCounts[post.id] || 0} />
                 ))
               )}
             </div>
@@ -649,6 +684,7 @@ export default function HomePage() {
                   posts.map((post, i) => (
                     <PostCard key={post.id} post={post} isNewest={i === 0} onDelete={handleDelete}
                       commentCount={commentCounts[post.id] || 0}
+                      likeCount={likeCounts[post.id] || 0}
                       autoOpenComments={openCommentForPost === post.id} />
                   ))
                 )}

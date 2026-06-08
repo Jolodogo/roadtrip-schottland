@@ -57,3 +57,19 @@ CREATE POLICY "Jeder kann Kommentare lesen"
   USING (true);
 
 -- Schreiben via Service Role Key (API Route) – kein direktes Client-INSERT nötig
+
+-- ============================================================
+-- NEU: Likes / Reaktionen (manuell im SQL Editor ausführen)
+-- ============================================================
+
+CREATE TABLE reactions (
+  id          UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  created_at  TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+  post_id     UUID NOT NULL REFERENCES posts(id) ON DELETE CASCADE
+);
+
+ALTER TABLE reactions ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Jeder kann Reaktionen lesen"
+  ON reactions FOR SELECT
+  USING (true);
