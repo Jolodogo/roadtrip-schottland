@@ -143,6 +143,7 @@ function PostCard({
   const [passcode, setPasscode] = useState('');
   const [deleteError, setDeleteError] = useState('');
 
+  const [lightboxOpen, setLightboxOpen] = useState(false);
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [comments, setComments] = useState<Comment[]>([]);
   const [commentsLoaded, setCommentsLoaded] = useState(false);
@@ -229,7 +230,38 @@ function PostCard({
       isNewest ? 'border-green-500/50 shadow-lg shadow-green-900/20' : 'border-green-900/30'
     }`}>
       {post.image_url && (
-        <img src={post.image_url} alt={post.title} className="w-full h-44 object-cover" />
+        <div className="relative">
+          <img src={post.image_url} alt={post.title} className="w-full h-44 object-cover" />
+          <button
+            onClick={() => setLightboxOpen(true)}
+            className="absolute bottom-2 right-2 bg-black/50 hover:bg-black/70 text-white rounded-lg p-1.5 backdrop-blur"
+            title="Vergrößern"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <polyline points="15 3 21 3 21 9" /><polyline points="9 21 3 21 3 15" />
+              <line x1="21" y1="3" x2="14" y2="10" /><line x1="3" y1="21" x2="10" y2="14" />
+            </svg>
+          </button>
+        </div>
+      )}
+
+      {/* Lightbox */}
+      {lightboxOpen && post.image_url && (
+        <div
+          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center"
+          onClick={() => setLightboxOpen(false)}
+        >
+          <button
+            onClick={() => setLightboxOpen(false)}
+            className="absolute top-4 right-4 bg-white/10 hover:bg-white/20 text-white rounded-full w-10 h-10 flex items-center justify-center text-lg font-light"
+          >✕</button>
+          <img
+            src={post.image_url}
+            alt={post.title}
+            className="max-w-full max-h-full object-contain p-4"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
       )}
       <div className="p-3">
         <div className="flex items-start justify-between gap-2 mb-1">
