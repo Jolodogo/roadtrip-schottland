@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
@@ -167,10 +167,11 @@ function PostCard({ post, isNewest }: { post: Post; isNewest: boolean }) {
 export default function HomePage() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sheetExpanded, setSheetExpanded] = useState(false);
   const [newPostCount, setNewPostCount] = useState(0);
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [weatherLocation, setWeatherLocation] = useState<string | null>(null);
+  const touchStartY = useRef<number | null>(null);
 
   const fetchPosts = useCallback(async () => {
     const res = await fetch('/api/posts');
@@ -243,18 +244,6 @@ export default function HomePage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {/* Feed toggle (mobile) */}
-          <button
-            onClick={() => { setSidebarOpen(!sidebarOpen); setNewPostCount(0); }}
-            className="relative flex items-center gap-1.5 px-3 py-1.5 bg-[#1a2e1f] border border-green-900/50 rounded-lg text-green-300 text-xs font-medium hover:bg-[#1e3825] transition-colors md:hidden"
-          >
-            📋 Feed
-            {newPostCount > 0 && (
-              <span className="absolute -top-1 -right-1 bg-green-500 text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-bold">
-                {newPostCount}
-              </span>
-            )}
-          </button>
           <Link
             href="/post"
             className="flex items-center gap-1.5 px-3 py-1.5 bg-green-700 hover:bg-green-600 text-white text-xs font-semibold transition-colors active:scale-[0.97]"
@@ -315,43 +304,104 @@ export default function HomePage() {
           </div>
         </aside>
 
-        {/* Mobile drawer */}
-        {sidebarOpen && (
-          <div className="md:hidden absolute inset-0 z-30 flex flex-col bg-[#0d1a10]">
-            {/* Obere Hälfte: Posts */}
-            <div className="h-1/2 flex flex-col min-h-0 border-b border-green-900/40">
-              <div className="px-4 py-3 border-b border-green-900/30 flex items-center justify-between shrink-0">
-                <span className="text-green-300/70 text-xs font-semibold uppercase tracking-wider">Updates</span>
-                <button onClick={() => setSidebarOpen(false)} className="text-green-400/60 hover:text-green-300 text-2xl leading-none">×</button>
-              </div>
-              <div className="flex-1 overflow-y-auto p-3 space-y-3 min-h-0">
+        {/* Mobile Bottom Sheet */}
+        <div
+          className="md:hidden absolute bottom-0 left-0 right-0 z-30 bg-[#0d1a10] border-t border-green-900/40 flex flex-col"
+          style={{
+            height: '80vh',
+            transform: sheetExpanded ? 'translateY(0)' : 'translateY(calc(100% - 168px))',
+            transition: 'transform 0.3s ease-out',
+          }}
+          onTouchStart={(e) => { touchStartY.current = e.touches[0].clientY; }}
+          onTouchEnd={(e) => {
+            if (touchStartY.current === null) return;
+            const delta = touchStartY.current - e.changedTouches[0].clientY;
+            if (delta > 30) setSheetExpanded(true);
+            if (delta < -30) setSheetExpanded(false);
+            touchStartY.current = null;
+          }}
+        >
+          {/* Drag Handle */}
+          <div
+            className="shrink-0 flex flex-col items-center pt-2 pb-1 cursor-pointer"
+            onClick={() => { setSheetExpanded(!sheetExpanded); setNewPostCount(0); }}
+          >
+            <div className="w-10 h-1 bg-green-700/50 rounded-full mb-2" />
+            <div className="w-full flex items-center justify-between px-4">
+              <span className="text-green-300/60 text-[10px] font-semibold uppercase tracking-wider">
+                {sheetExpanded ? 'Updates' : (posts.length > 0 ? posts[0].title : 'Noch keine Posts')}
+              </span>
+              {newPostCount > 0 && (
+                <span className="bg-green-500 text-white text-[10px] px-2 py-0.5 rounded-full font-bold">
+                  {newPostCount} neu
+                </span>
+              )}
+              <span className="text-green-400/40 text-xs">{sheetExpanded ? '↓' : '↑'}</span>
+            </div>
+          </div>
+
+          {/* Letzter Post kompakt (nur im collapsed Zustand sichtbar) */}
+          {!sheetExpanded && posts.length > 0 && (() => {
+            const p = posts[0];
+            const s = calcStats(posts);
+            return (
+              <>
+                <div className="px-3 py-2 flex items-center gap-3 border-t border-green-900/20">
+                  {p.image_url && (
+                    <img src={p.image_url} alt={p.title} className="w-12 h-12 rounded-lg object-cover shrink-0" />
+                  )}
+                  <div className="min-w-0">
+                    <div className="text-white text-xs font-semibold truncate">{p.title}</div>
+                    <div className="text-green-400/50 text-[10px] truncate">{p.location_name || formatDate(p.created_at)}</div>
+                    {p.text && <div className="text-green-100/40 text-[10px] truncate">{p.text}</div>}
+                  </div>
+                </div>
+                <div className="grid grid-cols-4 gap-1 px-3 pb-3 pt-1 border-t border-green-900/20">
+                  {[
+                    { label: 'Strecke', value: `${s.totalKm} km` },
+                    { label: 'Tage', value: `${s.days}` },
+                    { label: 'Stopps', value: `${s.stops}` },
+                    { label: 'km/Tag', value: `${s.kmPerDay}` },
+                  ].map(({ label, value }) => (
+                    <div key={label} className="bg-[#0f1712] border border-green-900/30 rounded px-2 py-1.5 text-center">
+                      <div className="text-green-400/40 text-[8px] uppercase">{label}</div>
+                      <div className="text-white text-[11px] font-semibold">{value}</div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            );
+          })()}
+
+          {/* Erweiterter Inhalt (scrollbar, nur sichtbar wenn expanded) */}
+          {sheetExpanded && (
+            <div className="flex-1 overflow-y-auto min-h-0">
+              {/* Posts */}
+              <div className="p-3 space-y-3 border-b border-green-900/40">
                 {loading ? (
-                  <div className="text-green-500/30 text-sm text-center py-8 animate-pulse">Lädt…</div>
+                  <div className="text-green-500/30 text-sm text-center py-4 animate-pulse">Lädt…</div>
                 ) : posts.length === 0 ? (
-                  <div className="text-center py-12">
-                    <div className="text-4xl mb-3">🗺️</div>
+                  <div className="text-center py-8">
+                    <div className="text-3xl mb-2">🗺️</div>
                     <p className="text-green-400/40 text-sm">Noch keine Posts.</p>
                   </div>
                 ) : (
-                  posts.map((post, i) => (
-                    <PostCard key={post.id} post={post} isNewest={i === 0} />
-                  ))
+                  posts.map((post, i) => <PostCard key={post.id} post={post} isNewest={i === 0} />)
                 )}
               </div>
-            </div>
-            {/* Untere Hälfte: Stats + Wetter */}
-            <div className="h-1/2 flex flex-col min-h-0 overflow-y-auto">
-              <div className="px-4 py-3 border-b border-green-900/30 shrink-0">
+              {/* Reisestats */}
+              <div className="px-4 py-2 border-b border-green-900/30">
                 <span className="text-green-300/70 text-xs font-semibold uppercase tracking-wider">Reisestats</span>
               </div>
               <StatsPanel posts={posts} />
-              <div className="px-4 py-3 border-t border-b border-green-900/30 shrink-0">
+              {/* Wetter */}
+              <div className="px-4 py-2 border-t border-b border-green-900/30">
                 <span className="text-green-300/70 text-xs font-semibold uppercase tracking-wider">Wetter</span>
               </div>
               <WeatherWidget weather={weather} location={weatherLocation} />
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );
