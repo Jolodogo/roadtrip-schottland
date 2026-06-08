@@ -129,17 +129,32 @@ function formatDate(dateStr: string) {
   });
 }
 
-function PostCard({ post, isNewest }: { post: Post; isNewest: boolean }) {
+function PostCard({ post, isNewest, onDelete }: { post: Post; isNewest: boolean; onDelete?: (id: string) => void }) {
+  const [deleting, setDeleting] = useState(false);
+  const [passcode, setPasscode] = useState('');
+  const [error, setError] = useState('');
+
+  async function handleDelete() {
+    setError('');
+    const res = await fetch('/api/posts', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: post.id, passcode }),
+    });
+    if (res.ok) {
+      onDelete?.(post.id);
+    } else {
+      const d = await res.json();
+      setError(d.error || 'Fehler');
+    }
+  }
+
   return (
     <div className={`rounded-xl overflow-hidden bg-[#1a2e1f] border transition-all ${
       isNewest ? 'border-green-500/50 shadow-lg shadow-green-900/20' : 'border-green-900/30'
     }`}>
       {post.image_url && (
-        <img
-          src={post.image_url}
-          alt={post.title}
-          className="w-full h-44 object-cover"
-        />
+        <img src={post.image_url} alt={post.title} className="w-full h-44 object-cover" />
       )}
       <div className="p-3">
         <div className="flex items-start justify-between gap-2 mb-1">
@@ -149,16 +164,44 @@ function PostCard({ post, isNewest }: { post: Post; isNewest: boolean }) {
               <span className="text-green-400/80"> · {post.location_name}</span>
             )}
           </div>
-          {isNewest && (
-            <span className="text-[10px] bg-green-600/30 text-green-400 px-2 py-0.5 rounded-full font-medium whitespace-nowrap">
-              Neu
-            </span>
-          )}
+          <div className="flex items-center gap-1 shrink-0">
+            {isNewest && (
+              <span className="text-[10px] bg-green-600/30 text-green-400 px-2 py-0.5 rounded-full font-medium">Neu</span>
+            )}
+            {onDelete && (
+              <button
+                onClick={() => { setDeleting(!deleting); setError(''); setPasscode(''); }}
+                className="text-red-400/40 hover:text-red-400 text-xs px-1"
+                title="Löschen"
+              >🗑️</button>
+            )}
+          </div>
         </div>
         <h3 className="text-white font-semibold text-sm leading-snug mb-1">{post.title}</h3>
         {post.text && (
           <p className="text-green-100/60 text-xs leading-relaxed line-clamp-3">{post.text}</p>
         )}
+        {/* Passcode-Eingabe zum Löschen */}
+        {deleting && (
+          <div className="mt-2 flex gap-1">
+            <input
+              type="password"
+              placeholder="Passcode"
+              value={passcode}
+              onChange={(e) => setPasscode(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleDelete()}
+              className="flex-1 bg-[#0f1712] border border-red-900/50 text-white text-xs px-2 py-1 rounded outline-none"
+              autoFocus
+            />
+            <button
+              onClick={handleDelete}
+              className="bg-red-800 hover:bg-red-700 text-white text-xs px-2 py-1 rounded"
+            >
+              Löschen
+            </button>
+          </div>
+        )}
+        {error && <p className="text-red-400 text-[10px] mt-1">{error}</p>}
       </div>
     </div>
   );
@@ -226,6 +269,10 @@ export default function HomePage() {
       .catch(() => {});
   }, [posts]);
 
+  const handleDelete = useCallback((id: string) => {
+    setPosts((prev) => prev.filter((p) => p.id !== id));
+  }, []);
+
   const tripDays = posts.length > 0
     ? Math.ceil((Date.now() - new Date(posts[posts.length - 1].created_at).getTime()) / 86400000)
     : 0;
@@ -286,7 +333,7 @@ export default function HomePage() {
                 </div>
               ) : (
                 posts.map((post, i) => (
-                  <PostCard key={post.id} post={post} isNewest={i === 0} />
+                  <PostCard key={post.id} post={post} isNewest={i === 0} onDelete={handleDelete} />
                 ))
               )}
             </div>

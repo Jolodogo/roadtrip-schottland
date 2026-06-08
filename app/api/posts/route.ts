@@ -46,3 +46,27 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json(data, { status: 201 });
 }
+
+export async function DELETE(request: NextRequest) {
+  const { id, passcode } = await request.json();
+
+  if (passcode !== process.env.ADMIN_PASSCODE) {
+    return NextResponse.json({ error: 'Ungültiger Passcode' }, { status: 401 });
+  }
+
+  const supabase = createServerClient();
+
+  // Bild aus Storage löschen falls vorhanden
+  const { data: post } = await supabase.from('posts').select('image_url').eq('id', id).single();
+  if (post?.image_url) {
+    try {
+      const path = new URL(post.image_url).pathname.split('/trip-photos/')[1];
+      if (path) await supabase.storage.from('trip-photos').remove([path]);
+    } catch {}
+  }
+
+  const { error } = await supabase.from('posts').delete().eq('id', id);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  return NextResponse.json({ success: true });
+}
