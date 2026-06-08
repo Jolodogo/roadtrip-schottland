@@ -302,8 +302,8 @@ export default function HomePage() {
 
       {/* Main layout */}
       <div className="flex-1 flex overflow-hidden relative">
-        {/* Map */}
-        <div className="flex-1 relative">
+        {/* Map — z-0 + isolate: eigene Stacking-Context, Leaflet-interne z-Indizes bleiben eingeschlossen */}
+        <div className="flex-1 relative z-0 isolate">
           <Map posts={posts} />
 
           {/* Live indicator */}
