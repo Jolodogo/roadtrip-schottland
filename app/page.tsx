@@ -248,7 +248,21 @@ export default function HomePage() {
   useEffect(() => {
     if (posts.length === 0) return;
     const last = posts[0]; // posts sind newest-first sortiert
-    setWeatherLocation(last.location_name || last.title);
+
+    // Ort via Nominatim reverse geocoding ermitteln
+    fetch(
+      `https://nominatim.openstreetmap.org/reverse?lat=${last.latitude}&lon=${last.longitude}&format=json&accept-language=de`,
+      { headers: { 'User-Agent': 'roadtrip-schottland-app' } }
+    )
+      .then((r) => r.json())
+      .then((d) => {
+        const a = d.address || {};
+        const city = a.city || a.town || a.village || a.hamlet || a.county || '';
+        const country = a.country || '';
+        setWeatherLocation(city && country ? `${city}, ${country}` : (city || country || last.location_name || last.title));
+      })
+      .catch(() => setWeatherLocation(last.location_name || last.title));
+
     fetch(
       `https://api.open-meteo.com/v1/forecast?latitude=${last.latitude}&longitude=${last.longitude}` +
       `&current=temperature_2m,apparent_temperature,weathercode,windspeed_10m` +
