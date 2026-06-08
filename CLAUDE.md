@@ -1,71 +1,60 @@
 # Roadtrip Schottland – Projektkontext für Claude Code
 
 ## Was ist das hier
-Next.js 14 Web-App: Live-Tracking für einen Schottland-Roadtrip.
+Next.js 15 Web-App: Live-Tracking für einen Schottland-Roadtrip.
 Öffentliche Karte mit Echtzeit-Markern, mobiles Post-Formular (Foto + GPS).
 
-**Stack:** Next.js 14 (App Router) · TypeScript · Tailwind CSS · Leaflet · Supabase
+**Stack:** Next.js 15 (App Router) · TypeScript · Tailwind CSS · Leaflet · Supabase
+
+**Live:** https://roadtrip-schottland.vercel.app  
+**GitHub:** https://github.com/Jolodogo/roadtrip-schottland  
+**Supabase-Projekt:** usitibimgaedtgrscsvf (Central EU / Frankfurt)
 
 ---
 
-## Deine Aufgabe beim ersten Start
+## Setup beim Start einer neuen Session
 
-Führe diese Schritte der Reihe nach aus:
-
-### 1. Prüfen ob .env.local existiert
 ```bash
+# .env.local prüfen
 ls -la .env.local
-```
-Falls nicht vorhanden:
-```bash
-cp .env.local.example .env.local
-```
-Dann stoppen und den Nutzer fragen: „Bitte trag deine Supabase-Keys und den Passcode in `.env.local` ein, dann sage mir Bescheid."
+# Falls nicht vorhanden: cp .env.local.example .env.local → Keys eintragen
 
-**WICHTIG: .env.local niemals committen, niemals lesen, niemals ausgeben.**
-
-### 2. Dependencies installieren
-```bash
+# Dependencies
 npm install
-```
 
-### 3. Build-Check (erkennt Typfehler vor dem Deploy)
-```bash
-npm run build
-```
-Fehler beheben bevor weitergemacht wird.
-
-### 4. Lokaler Test
-```bash
+# Dev-Server starten (läuft auf Port 3000)
 npm run dev
 ```
-Kurz prüfen ob der Server auf http://localhost:3000 antwortet.
 
-### 5. Git initialisieren und auf GitHub pushen
+**WICHTIG: `.env.local` niemals lesen, ausgeben oder committen.**
+
+### Deploy nach Änderungen
 ```bash
-git init
 git add -A
-git commit -m "Initial commit: Scotland Roadtrip App"
-```
-Dann den Nutzer fragen: „Soll ich ein GitHub-Repo erstellen? Wenn ja, gib mir den gewünschten Repo-Namen."
-
-Mit `gh` CLI (falls installiert):
-```bash
-gh repo create REPO-NAME --public --source=. --push
+git commit -m "..."
+git push
+# Vercel deployt automatisch aus main
 ```
 
-### 6. Vercel Deployment
-```bash
-npm i -g vercel
-vercel --prod
-```
-Bei der Vercel-Einrichtung: Framework = Next.js, Root Directory = `.`
+---
 
-Die Env-Variablen müssen in Vercel gesetzt werden. Den Nutzer darauf hinweisen:
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- `SUPABASE_SERVICE_ROLE_KEY`
-- `ADMIN_PASSCODE`
+## Aktueller Stand (nach Session vom 08.06.2026)
+
+### ✅ Erledigt
+- App deployed auf Vercel (kostenlos, Hobby Plan)
+- Supabase DB-Schema ausgeführt, Realtime für `posts` aktiv
+- Kartenstil: CartoDB Light
+- OSRM Straßenroute zwischen Posts (gestrichelt, grün)
+- Reisestats in Sidebar: Strecke, Reisetage, Stopps, km/Tag
+- Wetter-Widget via Open-Meteo (kostenlos, kein API-Key) — letzter Post-Koordinaten
+- Mobile Bottom Sheet: eingeklappt zeigt letzten Post + KPIs, hochziehen zeigt alles
+- Posts löschen: 🗑️ Icon auf PostCard, Passcode-Inline-Eingabe, löscht auch Bild aus Storage
+- PWA Manifest + SVG-Icon (Schottland Saltire auf dunkelgrünem BG)
+- Map-Bug behoben (StrictMode Doppelinitialisierung)
+
+### 🔲 Offen / Nächste Session
+- App-Icon als echte PNG-Datei (180×180px) für iPhone-Homescreen (iOS braucht PNG, nicht SVG)
+- Icon-Design: Schottlandflagge auf dunkelgrünem Hintergrund `#0f1712` — morgen besprechen
 
 ---
 
@@ -73,16 +62,21 @@ Die Env-Variablen müssen in Vercel gesetzt werden. Den Nutzer darauf hinweisen:
 
 ```
 app/
-  page.tsx          # Öffentliche Karten-Startseite mit Realtime-Feed
-  post/page.tsx     # Mobile Post-Seite (Passcode-geschützt)
-  api/posts/route.ts   # GET alle Posts / POST neuen Post
-  api/upload/route.ts  # Foto-Upload zu Supabase Storage
+  page.tsx              # Hauptseite: Karte + Sidebar (Desktop) + Bottom Sheet (Mobile)
+  post/page.tsx         # Mobiles Post-Formular (Passcode-geschützt)
+  api/posts/route.ts    # GET / POST / DELETE Posts (DELETE prüft Passcode + löscht Bild)
+  api/upload/route.ts   # Foto-Upload zu Supabase Storage (bucket: trip-photos)
+  globals.css           # Leaflet-Styles, Attribution-Styling, Popup-Styles
+  layout.tsx            # Metadata, PWA-Config, Manifest-Referenz
 components/
-  Map.tsx           # Leaflet-Karte (dynamisch geladen, kein SSR)
+  Map.tsx               # Leaflet-Karte (dynamic/ssr:false), Marker, OSRM-Route
 lib/
-  supabase.ts       # Supabase Browser- und Server-Client
-  types.ts          # TypeScript Interfaces
-supabase-schema.sql # SQL zum manuellen Ausführen in Supabase
+  supabase.ts           # Browser- und Server-Client
+  types.ts              # Post Interface
+public/
+  manifest.json         # PWA Manifest
+  icon.svg              # App-Icon (Schottland Saltire, dunkelgrün)
+supabase-schema.sql     # SQL einmalig in Supabase SQL Editor ausführen
 ```
 
 ---
@@ -94,13 +88,29 @@ supabase-schema.sql # SQL zum manuellen Ausführen in Supabase
 - `.env.local` niemals lesen, ausgeben oder committen
 - Leaflet muss immer per `dynamic()` mit `ssr: false` geladen werden
 - Passcode-Verifikation liegt ausschließlich in den API Routes (server-seitig)
+- Nach Änderungen Build-Check: `npm run build`
+- Vor Commit prüfen ob `.env.local` NICHT in `git status` auftaucht
 
 ---
 
-## Supabase – manuelle Schritte (vom Nutzer erledigt)
+## Kosten (alles kostenlos)
+| Dienst | Plan | Limit |
+|---|---|---|
+| Vercel | Hobby (free) | 100GB Bandwidth/Monat |
+| Supabase | Free | 500MB DB, 1GB Storage |
+| Open-Meteo | Free | unbegrenzt |
+| OSRM | Free public server | unbegrenzt |
+| CartoDB Tiles | Free | unbegrenzt |
 
-Diese Dinge kann Claude Code nicht übernehmen — der Nutzer macht sie im Browser:
-1. Supabase-Projekt anlegen: https://supabase.com
-2. `supabase-schema.sql` im SQL Editor ausführen
-3. Realtime aktivieren: Database → Replication → posts
-4. API-Keys kopieren und in `.env.local` eintragen
+---
+
+## Supabase – manuelle Schritte (bereits erledigt)
+1. ✅ Projekt angelegt: usitibimgaedtgrscsvf
+2. ✅ `supabase-schema.sql` im SQL Editor ausgeführt
+3. ✅ Realtime aktiviert: Database → Publications → supabase_realtime → posts
+4. ✅ API-Keys in `.env.local` und Vercel Environment Variables eingetragen
+
+---
+
+## Passcode
+`UK2026` — zum Posten und Löschen (nur in `.env.local` / Vercel gespeichert, nie im Code)
