@@ -69,7 +69,7 @@ git push
 - **Sicherheit:** Rate Limiting für `/api/auth` (10/15min) und `/api/reactions` (30/Stunde) via `lib/rateLimit.ts`
 - **Sicherheit:** Magic Bytes Validierung für Datei-Uploads (JPEG/PNG/WebP/HEIC)
 - **Sicherheit:** Koordinaten-Validierung in `/api/posts` POST
-- **Sicherheit:** `escapeHtml()` für alle User-Inhalte in Leaflet-Popups, `JSON.stringify()` für onclick-Args
+- **Sicherheit:** `escapeHtml()` für alle User-Inhalte in Leaflet-Popups; onclick-Args via `data-*` Attribute + `this.dataset` (NICHT JSON.stringify — doppelte Anführungszeichen brechen HTML-Attribute)
 - **Performance:** Map-Marker-Flicker behoben — Refs für Counts, getrennte Effects (Marker nur bei Post-Änderungen, Counts inline)
 - **Performance:** OSRM via `Promise.all()` statt sequentiell
 - **Performance:** Wetter-Effect dep auf `posts[0]?.id` (kein Over-Fetching)
@@ -97,9 +97,20 @@ git push
 - `app/api/push/subscribe/route.ts`: Browser-Subscription speichern (upsert on conflict endpoint)
 - `app/api/push/notify/route.ts`: Push an alle Subscriber senden, 410-Gone automatisch löschen
 - `app/page.tsx`: Bell-Icon im Header, Abo-Toggle, Berechtigungsabfrage
+- `app/api/push/unsubscribe/route.ts`: Subscription per endpoint löschen
 - `app/post/page.tsx`: Nach erfolgreichem Post → fire-and-forget notify
+- Bell-Icon togglet: einmal = aktivieren, nochmal = deaktivieren
 - iOS: funktioniert nur wenn PWA auf Homescreen installiert (iOS 16.4+)
 - "from Schottland" in Push-Nachricht: browser-enforced, nicht entfernbar
+
+### ✅ UX-Fixes (Session 09.06.2026)
+- Hydration-Error behoben: `typeof window !== 'undefined'` im JSX → `mounted`-State (useEffect)
+- KPI collapsed Bottom Sheet: Labels `text-[8px]` → `text-[10px]`, Werte `text-[11px]` → `text-xs`
+- KPI expanded Sidebar: Labels `text-[11px]` → `text-xs`, Werte `text-base` → `text-lg`
+- Reisetage: Einheit "Tage" hinter Wert entfernt
+- Map-Popup Kommentar-Button: `white-space:nowrap` verhindert Zeilenumbruch bei zweistelligen Zahlen
+- Map-Popup onclick-Callbacks: `JSON.stringify` → `data-*` Attribute + `this.dataset` (Bug-Fix)
+- Anleitung: `public/anleitung.html` — erreichbar unter `/anleitung.html`, druckbar als PDF
 
 ### 🔲 Keine offenen Aufgaben
 
@@ -160,6 +171,8 @@ supabase-schema.sql     # SQL für alle Tabellen (posts, comments, reactions, pu
 - Map-Callbacks (Like, Kommentar, Bild) über `window.__map*`-Globals (Leaflet HTML → React)
 - Icons: `lucide-react` mit `strokeWidth={1.5}`, w-4/w-5 — keine Emojis für UI-Aktionen
 - Leaflet-Popup kann keine React-Komponenten nutzen → inline SVG HTML-Strings verwenden
+- Leaflet-Popup onclick: NIEMALS `JSON.stringify` für Strings verwenden → doppelte Anführungszeichen brechen `onclick="..."` Attribute → stattdessen `data-*` Attribute + `this.dataset`
+- `typeof window !== 'undefined'` NICHT direkt im JSX verwenden → Hydration-Error → stattdessen `mounted`-State mit `useEffect`
 - `worker/` ist aus `tsconfig.json` exclude — next-pwa kompiliert es separat
 - Nach Änderungen Build-Check: `npm run build`
 - Vor Commit prüfen ob `.env.local` NICHT in `git status` auftaucht
