@@ -7,6 +7,19 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { Post, Comment } from '@/lib/types';
 
+// Konvertiert VAPID Public Key vom Base64-Format in ArrayBuffer für pushManager.subscribe()
+function urlBase64ToUint8Array(base64String: string): ArrayBuffer {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  const buffer = new ArrayBuffer(rawData.length);
+  const view = new Uint8Array(buffer);
+  for (let i = 0; i < rawData.length; i++) {
+    view[i] = rawData.charCodeAt(i);
+  }
+  return buffer;
+}
+
 const Map = dynamic(() => import('@/components/Map'), {
   ssr: false,
   loading: () => (
@@ -434,6 +447,7 @@ export default function HomePage() {
   const [scrollToPost, setScrollToPost] = useState<string | null>(null);
   const [mapLightboxSrc, setMapLightboxSrc] = useState<string | null>(null);
   const [isOffline, setIsOffline] = useState(false);
+  const [pushState, setPushState] = useState<'idle' | 'loading' | 'subscribed' | 'denied'>('idle');
   const touchStartY = useRef<number | null>(null);
 
   // Online/Offline-Status überwachen
@@ -446,6 +460,48 @@ export default function HomePage() {
       window.removeEventListener('online', update);
       window.removeEventListener('offline', update);
     };
+  }, []);
+
+  // Initialen Push-Status ermitteln
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('Notification' in window)) return;
+    if (Notification.permission === 'denied') {
+      setPushState('denied');
+    } else if (Notification.permission === 'granted') {
+      navigator.serviceWorker.ready.then((reg) =>
+        reg.pushManager.getSubscription()
+      ).then((sub) => {
+        if (sub) setPushState('subscribed');
+      }).catch(() => {});
+    }
+  }, []);
+
+  const handlePushSubscribe = useCallback(async () => {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+    setPushState('loading');
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        setPushState('denied');
+        return;
+      }
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(
+          process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!
+        ),
+      });
+      await fetch('/api/push/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(sub.toJSON()),
+      });
+      setPushState('subscribed');
+    } catch (err) {
+      console.error('Push-Subscription fehlgeschlagen:', err);
+      setPushState('idle');
+    }
   }, []);
 
   const fetchPosts = useCallback(async () => {
@@ -557,6 +613,26 @@ export default function HomePage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {typeof window !== 'undefined' && 'Notification' in window && pushState !== 'denied' && (
+            <button
+              onClick={handlePushSubscribe}
+              disabled={pushState === 'loading' || pushState === 'subscribed'}
+              title={pushState === 'subscribed' ? 'Benachrichtigungen aktiv' : 'Benachrichtigungen aktivieren'}
+              className={`flex items-center justify-center w-8 h-8 rounded-lg transition-colors ${
+                pushState === 'subscribed'
+                  ? 'text-green-400'
+                  : 'text-white/40 hover:text-white/70 hover:bg-green-900/30'
+              }`}
+            >
+              {pushState === 'loading' ? (
+                <span className="animate-spin text-xs">⏳</span>
+              ) : pushState === 'subscribed' ? (
+                '🔔'
+              ) : (
+                '🔕'
+              )}
+            </button>
+          )}
           <Link
             href="/post"
             className="flex items-center gap-1.5 px-3 py-1.5 bg-green-700 hover:bg-green-600 text-white text-xs font-semibold rounded-lg transition-colors active:scale-[0.97]"

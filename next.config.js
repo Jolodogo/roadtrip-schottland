@@ -20,6 +20,7 @@ module.exports = withPWA({
   cacheOnFrontEndNav: true,
   aggressiveFrontEndNavCaching: true,
   reloadOnOnline: true,
+  customWorkerSrc: 'worker',
   workboxOptions: {
     disableDevLogs: true,
     runtimeCaching: [

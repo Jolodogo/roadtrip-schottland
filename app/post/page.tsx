@@ -152,6 +152,16 @@ export default function PostPage() {
       }
 
       setSubmitted(true);
+      // Push-Notification an alle Abonnenten senden (fire-and-forget)
+      fetch('/api/push/notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: 'Neuer Post auf der Karte! 🏴󠁧󠁢󠁳󠁣󠁴󠁿',
+          body: title.trim(),
+          url: '/',
+        }),
+      }).catch(() => {});
     } catch (err: any) {
       setError(err.message);
     } finally {
