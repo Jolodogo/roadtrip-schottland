@@ -606,7 +606,7 @@ export default function HomePage() {
         <div className="flex items-center gap-2.5">
           <img src="/logo.png" alt="Logo" className="w-8 h-8 rounded-lg object-cover" />
           <div>
-            <h1 className="text-white font-bold text-sm leading-tight">Schottland-Roadtrip</h1>
+            <h1 className="text-white font-bold text-base leading-tight">Schottland-Roadtrip</h1>
             <p className="text-green-400/50 text-[11px]">
               {loading ? 'Lädt…' : `${posts.length} Posts · Tag ${tripDays > 0 ? tripDays : '–'}`}
             </p>
