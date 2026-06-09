@@ -49,9 +49,8 @@ function calcStats(posts: Post[]) {
     km += haversineKm(sorted[i - 1].latitude, sorted[i - 1].longitude, sorted[i].latitude, sorted[i].longitude);
   }
   const totalKm = Math.round(km);
-  const days = Math.max(1, Math.ceil(
-    (new Date(sorted[sorted.length - 1].created_at).getTime() - new Date(sorted[0].created_at).getTime()) / 86400000
-  ) + 1);
+  // Eindeutige Kalendertage zählen (YYYY-MM-DD) — nicht Zeitspanne
+  const days = Math.max(1, new Set(sorted.map((p) => new Date(p.created_at).toISOString().slice(0, 10))).size);
   return { totalKm, days, stops: posts.length, kmPerDay: Math.round(totalKm / days) };
 }
 
