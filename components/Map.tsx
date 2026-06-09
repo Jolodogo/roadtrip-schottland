@@ -44,7 +44,8 @@ function buildPopupContent(
           <img src="${escapeHtml(post.image_url)}" alt="${escapeHtml(post.title)}"
             style="width:100%;height:160px;object-fit:cover;display:block;" />
           <button
-            onclick="if(window.__mapImageExpand)window.__mapImageExpand(${JSON.stringify(post.image_url)})"
+            data-imgurl="${escapeHtml(post.image_url)}"
+            onclick="if(window.__mapImageExpand)window.__mapImageExpand(this.dataset.imgurl)"
             style="position:absolute;bottom:8px;right:8px;background:rgba(0,0,0,0.55);color:white;border:none;border-radius:8px;padding:5px 7px;cursor:pointer;line-height:1;"
           >⤢</button>
         </div>
@@ -55,11 +56,13 @@ function buildPopupContent(
         ${post.text ? `<div style="font-size: 13px; color: #bbf7d0; line-height: 1.5;">${escapeHtml(post.text)}</div>` : ''}
         <div style="margin-top:10px;display:flex;gap:8px;">
           <button
-            onclick="if(window.__mapLikeClick)window.__mapLikeClick(${JSON.stringify(post.id)})"
+            data-postid="${post.id}"
+            onclick="if(window.__mapLikeClick)window.__mapLikeClick(this.dataset.postid)"
             style="background:#1a1a1a;border:1px solid #2a2a2a;color:#f87171;font-size:12px;padding:6px 10px;border-radius:8px;min-width:48px;text-align:center;cursor:pointer;"
           ><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:4px;"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>${likeCount}</button>
           <button
-            onclick="if(window.__mapCommentClick)window.__mapCommentClick(${JSON.stringify(post.id)})"
+            data-postid="${post.id}"
+            onclick="if(window.__mapCommentClick)window.__mapCommentClick(this.dataset.postid)"
             style="flex:1;background:#14532d;border:1px solid #166534;color:#86efac;font-size:12px;padding:6px 10px;border-radius:8px;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:6px;"
           ><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>${commentCount} Kommentar${commentCount !== 1 ? 'e' : ''}</button>
         </div>
