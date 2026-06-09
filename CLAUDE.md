@@ -123,9 +123,11 @@ git push
 - Neuer Post: `router.refresh()` nach erfolgreichem POST → invalidiert Next.js Server-Cache
 - Supabase Realtime: UPDATE + DELETE Events hinzugefügt (war nur INSERT) → Änderungen sofort auf allen Geräten
 - `visibilitychange` Event in `app/page.tsx` → `fetchPosts()` bei App-Rückkehr (PWA-Pattern)
-  - Deckt ab: Rückkehr von /post, App-Switch, Tab-Wechsel, PWA Vordergrund
-  - **WICHTIG:** Dieses Pattern IMMER verwenden wenn Daten nach Navigation aktuell sein müssen
-  - Grund: Next.js Client-Router hält Komponente im Speicher → kein Remount → kein fetchPosts ohne visibilitychange
+- `/api/posts` in next.config.js: `NetworkFirst` statt `StaleWhileRevalidate` — liefert immer frische Daten, Cache nur Offline-Fallback
+- "Zur Karte" Button: `<a href="/">` statt `<Link>` → erzwingt vollen Page-Reload, kein eingefroster Router-State
+- `fetch('/api/posts', { cache: 'no-store' })` + `Cache-Control: no-store` Header in API Route
+- **WICHTIG:** Service Worker cached API-Responses — `StaleWhileRevalidate` für dynamische Daten NIEMALS verwenden, immer `NetworkFirst`
+- **WICHTIG:** Nach SW-Änderungen: PWA-Nutzer müssen App neu starten damit neuer SW aktiv wird
 
 ### ✅ Tagesansicht / Post-Gruppierung (Session 09.06.2026)
 - Posts werden nach Kalendertag gruppiert (Desktop-Sidebar + Mobile Bottom Sheet)
