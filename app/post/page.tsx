@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
+import imageCompression from 'browser-image-compression';
 
 const Map = dynamic(() => import('@/components/Map'), { ssr: false });
 
@@ -23,6 +24,7 @@ export default function PostPage() {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [compressing, setCompressing] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -74,13 +76,26 @@ export default function PostPage() {
     );
   }, []);
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    // Vorschau sofort anzeigen (Original), Komprimierung im Hintergrund
     setImageFile(file);
-    const reader = new FileReader();
-    reader.onload = (ev) => setImagePreview(ev.target?.result as string);
-    reader.readAsDataURL(file);
+    setImagePreview(URL.createObjectURL(file));
+    setCompressing(true);
+    try {
+      const compressed = await imageCompression(file, {
+        maxWidthOrHeight: 1200,
+        initialQuality: 0.85,
+        useWebWorker: true,
+        fileType: 'image/jpeg',
+        maxSizeMB: 2,
+      });
+      setImageFile(compressed);
+    } catch {
+      // Fallback: Original hochladen wenn Komprimierung fehlschlägt
+    }
+    setCompressing(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -234,9 +249,16 @@ export default function PostPage() {
           {imagePreview ? (
             <div className="relative rounded-xl overflow-hidden">
               <img src={imagePreview} alt="Vorschau" className="w-full h-56 object-cover" />
+              {compressing && (
+                <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                  <span className="bg-black/70 text-white text-xs px-3 py-1.5 rounded-full animate-pulse">
+                    ⚙️ Komprimiert…
+                  </span>
+                </div>
+              )}
               <button
                 type="button"
-                onClick={() => { setImageFile(null); setImagePreview(null); if (fileInputRef.current) fileInputRef.current.value = ''; }}
+                onClick={() => { setImageFile(null); setImagePreview(null); setCompressing(false); if (fileInputRef.current) fileInputRef.current.value = ''; }}
                 className="absolute top-2 right-2 bg-black/60 text-white rounded-full w-8 h-8 flex items-center justify-center text-lg leading-none"
               >
                 ×
@@ -385,7 +407,7 @@ export default function PostPage() {
         <div className="fixed bottom-0 left-0 right-0 p-4 bg-[#0f1712]/95 backdrop-blur border-t border-green-900/40 safe-bottom">
           <button
             type="submit"
-            disabled={submitting || !title.trim() || !location}
+            disabled={submitting || compressing || !title.trim() || !location}
             className="w-full py-4 bg-green-600 hover:bg-green-500 disabled:bg-green-900/40 disabled:text-green-700 text-white rounded-xl font-semibold text-base transition-colors active:scale-[0.98]"
           >
             {submitting ? (
