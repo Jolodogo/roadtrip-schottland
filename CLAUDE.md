@@ -45,10 +45,11 @@ git push
 - Supabase DB-Schema ausgeführt, Realtime für `posts` aktiv
 - Kartenstil: CartoDB Light
 - OSRM Straßenroute zwischen Posts (gestrichelt, grün)
-- Reisestats in Sidebar: Strecke, Reisetage, Stopps, km/Tag
+- Reisestats in Sidebar: Strecke, Reisetage, Stopps, Strecke/Tag (mit km-Einheit)
 - Wetter-Widget via Open-Meteo (kostenlos, kein API-Key) — Standort via Nominatim reverse geocoding
 - Mobile Bottom Sheet: eingeklappt (zeigt "Updates" + KPIs), hochziehen zeigt alles
-- Posts löschen: 🗑️ Icon auf PostCard, Passcode-Inline-Eingabe, funktioniert mobil + Desktop
+- Posts löschen: Passcode-Inline-Eingabe, funktioniert mobil + Desktop
+- Posts bearbeiten: Stift-Icon auf PostCard, Passcode-geschützt, Felder: Titel, Text, Location
 - PWA: App-Icon PNG 180×180 (Hund auf Saltire), Titel "Schottland-Roadtrip"
 - Map-Bug behoben (StrictMode Doppelinitialisierung)
 - Bottom Sheet z-index Fix (Leaflet-Isolation via z-0 + isolate)
@@ -61,6 +62,8 @@ git push
 - Herz-Reaktionen: Map-Popup zeigt Anzahl + scrollt zu PostCard beim Klick
 - Lightbox: Bilder in PostCard + Map-Popup vollflächig öffnen (Portal-basiert)
 - PDF-Anleitung: `Anleitung-HomeScreen.pdf` für iPhone + Android
+- Icon-Modernisierung: `lucide-react` (strokeWidth 1.5) — Bell, BellOff, Heart, MessageCircle, Trash2, Pencil, MapPin, Plus, Loader2
+- Map-Popup: Herz + Kommentar-Emoji durch inline SVG ersetzt (konsistent mit Lucide)
 
 ### ✅ Code-Review + Fixes (Session 09.06.2026)
 - **Sicherheit:** Rate Limiting für `/api/auth` (10/15min) und `/api/reactions` (30/Stunde) via `lib/rateLimit.ts`
@@ -76,6 +79,7 @@ git push
 
 ### ✅ Offline-Caching via next-pwa (Session 09.06.2026)
 - `@ducanh2912/next-pwa` installiert und in `next.config.js` konfiguriert
+- `customWorkerSrc: 'worker'` — Custom Service Worker in `worker/index.ts`
 - Workbox RuntimeCaching: CartoDB-Tiles (CacheFirst 30 Tage), Supabase-Fotos (CacheFirst 7 Tage), `/api/posts` (StaleWhileRevalidate)
 - `.gitignore` um generierte SW-Dateien erweitert
 
@@ -85,30 +89,19 @@ git push
 - HEIC → JPEG automatisch
 - Komprimierungs-Badge + Submit-Button disabled während Komprimierung
 
-### 🔲 Nächste Session — Push-Benachrichtigungen IMPLEMENTIEREN
-**Plan:** `docs/superpowers/plans/2026-06-09-push-notifications.md`  
-**Spec:** `docs/superpowers/specs/2026-06-09-push-notifications-design.md`
+### ✅ Push-Benachrichtigungen (Session 09.06.2026)
+- `web-push` npm-Paket installiert
+- VAPID Keys generiert + in `.env.local` und Vercel eingetragen
+- Supabase-Tabelle `push_subscriptions` angelegt (endpoint, p256dh, auth)
+- `worker/index.ts`: Custom Service Worker — push-Event zeigt Notification, notificationclick öffnet App
+- `app/api/push/subscribe/route.ts`: Browser-Subscription speichern (upsert on conflict endpoint)
+- `app/api/push/notify/route.ts`: Push an alle Subscriber senden, 410-Gone automatisch löschen
+- `app/page.tsx`: Bell-Icon im Header, Abo-Toggle, Berechtigungsabfrage
+- `app/post/page.tsx`: Nach erfolgreichem Post → fire-and-forget notify
+- iOS: funktioniert nur wenn PWA auf Homescreen installiert (iOS 16.4+)
+- "from Schottland" in Push-Nachricht: browser-enforced, nicht entfernbar
 
-**Vorher manuell erledigen (Nutzer-Aufgaben):**
-1. `npx web-push generate-vapid-keys` ausführen
-2. Keys in `.env.local` eintragen: `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT=mailto:altrichter.velly@gmx.de`
-3. Dieselben Keys in Vercel Environment Variables eintragen
-4. In Supabase SQL Editor ausführen:
-   ```sql
-   CREATE TABLE push_subscriptions (
-     id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-     endpoint TEXT UNIQUE NOT NULL,
-     p256dh TEXT NOT NULL,
-     auth TEXT NOT NULL,
-     created_at TIMESTAMPTZ DEFAULT now()
-   );
-   ALTER TABLE push_subscriptions ENABLE ROW LEVEL SECURITY;
-   ```
-
-**Dann in neuer Session:**
-```
-Lies die CLAUDE.md im Ordner 'Roadtrip Schottland' und führe den Plan docs/superpowers/plans/2026-06-09-push-notifications.md aus.
-```
+### 🔲 Keine offenen Aufgaben
 
 ---
 
@@ -119,6 +112,9 @@ app/
   page.tsx              # Hauptseite: Karte + Sidebar (Desktop) + Bottom Sheet (Mobile)
   post/page.tsx         # Mobiles Post-Formular (Passcode-geschützt)
   api/posts/route.ts    # GET / POST / DELETE Posts (DELETE prüft Passcode + löscht Bild)
+  api/posts/[id]/route.ts # PATCH Post bearbeiten (prüft Passcode, aktualisiert title/text/location_name)
+  api/push/subscribe/route.ts # POST Browser-PushSubscription speichern
+  api/push/notify/route.ts    # POST Push an alle Subscriber senden
   api/upload/route.ts   # Foto-Upload zu Supabase Storage (bucket: trip-photos)
   api/comments/route.ts # GET (alle oder nach post_id) / POST neue Kommentare
   api/reactions/route.ts# GET (Counts alle Posts) / POST neues Like
@@ -136,7 +132,9 @@ public/
   logo.png              # Header-Logo 40×40px
   dog-source.png        # Originalquelle für Icon-Generierung (nicht deployed relevant)
   Anleitung-HomeScreen.pdf  # Nutzer-Anleitung PWA Installation
-supabase-schema.sql     # SQL für alle Tabellen (posts, comments, reactions)
+worker/
+  index.ts              # Custom Service Worker: push-Event + notificationclick
+supabase-schema.sql     # SQL für alle Tabellen (posts, comments, reactions, push_subscriptions)
 ```
 
 ---
@@ -147,6 +145,7 @@ supabase-schema.sql     # SQL für alle Tabellen (posts, comments, reactions)
 | `posts` | id, created_at, title, text, latitude, longitude, image_url, location_name, day_number | Realtime aktiv |
 | `comments` | id, created_at, post_id, author_name, text | RLS: SELECT public |
 | `reactions` | id, created_at, post_id | RLS: SELECT public |
+| `push_subscriptions` | id, endpoint, p256dh, auth, created_at | RLS aktiviert, kein public SELECT |
 
 ---
 
@@ -159,6 +158,9 @@ supabase-schema.sql     # SQL für alle Tabellen (posts, comments, reactions)
 - Passcode-Verifikation liegt ausschließlich in den API Routes (server-seitig)
 - Lightboxen via `createPortal(…, document.body)` — nicht als Kind von transformierten Elementen
 - Map-Callbacks (Like, Kommentar, Bild) über `window.__map*`-Globals (Leaflet HTML → React)
+- Icons: `lucide-react` mit `strokeWidth={1.5}`, w-4/w-5 — keine Emojis für UI-Aktionen
+- Leaflet-Popup kann keine React-Komponenten nutzen → inline SVG HTML-Strings verwenden
+- `worker/` ist aus `tsconfig.json` exclude — next-pwa kompiliert es separat
 - Nach Änderungen Build-Check: `npm run build`
 - Vor Commit prüfen ob `.env.local` NICHT in `git status` auftaucht
 
@@ -185,4 +187,9 @@ supabase-schema.sql     # SQL für alle Tabellen (posts, comments, reactions)
 ---
 
 ## Passcode
-`UK2026` — zum Posten und Löschen (nur in `.env.local` / Vercel gespeichert, nie im Code)
+`UK2026` — zum Posten, Löschen und Bearbeiten (nur in `.env.local` / Vercel gespeichert, nie im Code)
+
+## VAPID-Keys (Push Notifications)
+- Public Key: `BG1BbRbOApWy9ZbjZiT4VEO66W3l4nh5i2FD33NsFsV-BaCCtaLqQtrUNU9VU10xtdPvL_KgPK0nz7zA52mBPaA`
+- Private Key: nur in `.env.local` und Vercel — NIEMALS im Code
+- Subject: `mailto:cordes.john@web.de`
