@@ -66,9 +66,9 @@ function StatsPanel({ posts }: { posts: Post[] }) {
     <div className="grid grid-cols-2 gap-2 p-3">
       {items.map(({ label, value, unit }) => (
         <div key={label} className="bg-[#0f1712] border border-green-900/30 rounded-lg px-3 py-2">
-          <div className="text-green-400/40 text-[9px] uppercase tracking-wider mb-0.5">{label}</div>
-          <div className="text-white font-semibold text-sm leading-tight truncate">
-            {value}{unit && <span className="text-green-400/50 text-[11px] font-normal ml-1">{unit}</span>}
+          <div className="text-green-400/40 text-[11px] uppercase tracking-wider mb-0.5">{label}</div>
+          <div className="text-white font-semibold text-base leading-tight truncate">
+            {value}{unit && <span className="text-green-400/50 text-xs font-normal ml-1">{unit}</span>}
           </div>
         </div>
       ))}
