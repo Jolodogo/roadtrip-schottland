@@ -158,6 +158,85 @@ Bilder: lokales Docker Volume (`/uploads`) statt Supabase Storage
 
 **Vorgehen:** Nach Schottland-Trip neues Repo anlegen (nicht umbauen), VPS-ready + Multi-Trip von Anfang an
 
+**Für neue Session:** Dieses CLAUDE.md lesen → Abschnitt "Architektur" + "Nächste große Aufgabe" als Kontext übergeben
+
+---
+
+## Architektur (aktueller Stand)
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        BROWSER / PHONE                          │
+│                                                                 │
+│  React (Next.js 15)  ·  TypeScript  ·  Tailwind CSS            │
+│  Leaflet (Karte)  ·  Lucide Icons  ·  PWA (Workbox)            │
+│                                                                 │
+│  Service Worker ──► Push Notifications (Web Push API)          │
+└────────────┬────────────────────────────┬───────────────────────┘
+             │ HTTPS                      │ WebSocket (Realtime)
+             ▼                            ▼
+┌────────────────────────┐   ┌────────────────────────────────────┐
+│   VERCEL (Serverless)  │   │         SUPABASE (Frankfurt)       │
+│                        │   │                                    │
+│  Next.js API Routes    │   │  PostgreSQL                        │
+│  (TypeScript/Node.js)  │◄──►  ├─ posts                         │
+│                        │   │  ├─ comments                      │
+│  /api/posts            │   │  ├─ reactions                     │
+│  /api/comments         │   │  ├─ push_subscriptions            │
+│  /api/reactions        │   │                                    │
+│  /api/upload           │   │  Storage (trip-photos bucket)      │
+│  /api/auth             │   │  Realtime (INSERT/UPDATE/DELETE)   │
+│  /api/push/*           │   └────────────────────────────────────┘
+└────────────┬───────────┘
+             │ HTTP (fetch)
+             ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                    EXTERNE DIENSTE (kostenlos)                  │
+│                                                                 │
+│  Open-Meteo       → Wetter-API (kein Key nötig)                │
+│  Nominatim/OSM    → Reverse Geocoding (GPS → Ortsname)         │
+│  OSRM             → Straßenrouten zwischen Posts               │
+│  CartoDB          → Karten-Tiles (visueller Stil)              │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Sprachen & Technologien
+| Bereich | Technologie |
+|---|---|
+| Sprache | TypeScript (Frontend + Backend) |
+| Framework | Next.js 15 (App Router) |
+| Styling | Tailwind CSS |
+| Icons | Lucide React (SVG, strokeWidth 1.5) |
+| Karte | Leaflet.js (dynamisch geladen, kein SSR) |
+| PWA | @ducanh2912/next-pwa (Workbox) |
+| Datenbank | PostgreSQL via Supabase |
+| Datei-Upload | Supabase Storage (S3-kompatibel) |
+| Realtime | Supabase WebSocket (LISTEN auf posts-Tabelle) |
+| Push Notifications | Web Push API + VAPID + `web-push` npm |
+| Hosting | Vercel (Hobby, kostenlos) |
+| Source Control | GitHub → Vercel Auto-Deploy |
+| Bildkomprimierung | browser-image-compression (Web Worker) |
+
+### Datenfluss: Neuen Post erstellen
+```
+1. /post/page.tsx   → Fotos komprimieren (browser-image-compression)
+2. /api/upload      → Fotos → Supabase Storage → gibt URLs zurück
+3. /api/posts POST  → Metadaten + URLs → PostgreSQL
+4. /api/push/notify → web-push → alle Browser-Subscriptions
+5. router.refresh() → Next.js Router-Cache invalidieren
+6. Supabase Realtime → INSERT-Event → alle offenen Apps aktualisieren
+```
+
+### Was bei VPS-Migration ersetzt wird
+| Jetzt | VPS (Hostinger KVM 2) |
+|---|---|
+| Supabase PostgreSQL | PostgreSQL 16 (Docker) |
+| Supabase Storage | Lokales Volume `/uploads` |
+| Supabase Realtime (WS) | PostgreSQL LISTEN/NOTIFY + Next.js SSE |
+| Vercel Serverless | Docker Container (Node.js) |
+| Vercel Auto-Deploy | `git pull` + `docker compose up -d` |
+| Supabase Dashboard | pgAdmin oder direktes psql |
+
 ---
 
 ## Projektstruktur
