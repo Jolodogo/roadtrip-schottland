@@ -217,12 +217,12 @@ export default function PostPage() {
           >
             Weiteren Post erstellen
           </button>
-          <Link
+          <a
             href="/"
             className="w-full py-3 bg-[#1a2e1f] border border-green-900 text-green-300 rounded-xl font-semibold text-center transition-colors hover:bg-[#1e3825]"
           >
             Zur Karte
-          </Link>
+          </a>
         </div>
       </div>
     );
