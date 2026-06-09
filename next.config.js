@@ -54,15 +54,16 @@ module.exports = withPWA({
           },
         },
       },
-      // /api/posts: StaleWhileRevalidate — sofort aus Cache, Hintergrund-Update
+      // /api/posts: NetworkFirst — immer aktuell, Cache nur bei Offline
       {
         urlPattern: /^https?:\/\/.*\/api\/posts$/i,
-        handler: 'StaleWhileRevalidate',
+        handler: 'NetworkFirst',
         options: {
           cacheName: 'api-posts',
+          networkTimeoutSeconds: 10,
           expiration: {
             maxEntries: 1,
-            maxAgeSeconds: 24 * 60 * 60,
+            maxAgeSeconds: 60,
           },
         },
       },
