@@ -886,8 +886,8 @@ export default function HomePage() {
                     { label: 'Strecke/Tag', value: `${s.kmPerDay} km` },
                   ].map(({ label, value }) => (
                     <div key={label} className="bg-[#0f1712] border border-green-900/30 rounded px-2 py-1.5 text-center">
-                      <div className="text-green-400/40 text-[8px] uppercase">{label}</div>
-                      <div className="text-white text-[11px] font-semibold">{value}</div>
+                      <div className="text-green-400/40 text-[10px] uppercase tracking-wide">{label}</div>
+                      <div className="text-white text-xs font-semibold">{value}</div>
                     </div>
                   ))}
                 </div>
