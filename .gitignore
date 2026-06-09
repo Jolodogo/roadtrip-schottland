@@ -9,5 +9,12 @@ out/
 .env.local
 .env*.local
 
+# Generierte PWA-Dateien (werden beim Build erzeugt)
+public/sw.js
+public/sw.js.map
+public/workbox-*.js
+public/workbox-*.js.map
+public/swe-worker-*.js
+
 # Systemdateien
 .DS_Store

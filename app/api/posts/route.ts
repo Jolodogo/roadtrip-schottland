@@ -31,6 +31,11 @@ export async function POST(request: NextRequest) {
   if (!title || latitude === undefined || longitude === undefined) {
     return NextResponse.json({ error: 'Titel und Position sind erforderlich' }, { status: 400 });
   }
+  if (typeof latitude !== 'number' || typeof longitude !== 'number' ||
+      isNaN(latitude) || isNaN(longitude) ||
+      latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+    return NextResponse.json({ error: 'Ungültige Koordinaten' }, { status: 400 });
+  }
 
   const supabase = createServerClient();
 
@@ -61,8 +66,13 @@ export async function DELETE(request: NextRequest) {
   if (post?.image_url) {
     try {
       const path = new URL(post.image_url).pathname.split('/trip-photos/')[1];
-      if (path) await supabase.storage.from('trip-photos').remove([path]);
-    } catch {}
+      if (path) {
+        const { error: storageError } = await supabase.storage.from('trip-photos').remove([path]);
+        if (storageError) console.error('Storage-Löschfehler:', storageError.message);
+      }
+    } catch (e) {
+      console.error('Fehler beim Parsen der Bild-URL:', e);
+    }
   }
 
   const { error } = await supabase.from('posts').delete().eq('id', id);

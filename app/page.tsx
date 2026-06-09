@@ -185,21 +185,7 @@ function PostCard({
     if (saved) setAuthorName(saved);
   }, []);
 
-  // Von Karte aus: nur scrollen (für Like-Button)
-  useEffect(() => {
-    if (!autoScrollTo) return;
-    setTimeout(() => cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 350);
-  }, [autoScrollTo]);
-
-  // Von Karte aus aufgerufen: scrollen + öffnen
-  useEffect(() => {
-    if (!autoOpenComments) return;
-    setCommentsOpen(true);
-    if (!commentsLoaded) loadComments();
-    setTimeout(() => cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 350);
-  }, [autoOpenComments]);
-
-  async function loadComments() {
+  const loadComments = useCallback(async () => {
     setCommentsLoading(true);
     const res = await fetch(`/api/comments?post_id=${post.id}`);
     if (res.ok) {
@@ -209,7 +195,23 @@ function PostCard({
       setCommentsLoaded(true);
     }
     setCommentsLoading(false);
-  }
+  }, [post.id]);
+
+  // Von Karte aus: nur scrollen (für Like-Button)
+  useEffect(() => {
+    if (!autoScrollTo) return;
+    const t = setTimeout(() => cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 350);
+    return () => clearTimeout(t);
+  }, [autoScrollTo]);
+
+  // Von Karte aus aufgerufen: scrollen + öffnen
+  useEffect(() => {
+    if (!autoOpenComments) return;
+    setCommentsOpen(true);
+    if (!commentsLoaded) loadComments();
+    const t = setTimeout(() => cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 350);
+    return () => clearTimeout(t);
+  }, [autoOpenComments, commentsLoaded, loadComments]);
 
   function toggleComments() {
     const opening = !commentsOpen;
@@ -431,7 +433,20 @@ export default function HomePage() {
   const [openCommentForPost, setOpenCommentForPost] = useState<string | null>(null);
   const [scrollToPost, setScrollToPost] = useState<string | null>(null);
   const [mapLightboxSrc, setMapLightboxSrc] = useState<string | null>(null);
+  const [isOffline, setIsOffline] = useState(false);
   const touchStartY = useRef<number | null>(null);
+
+  // Online/Offline-Status überwachen
+  useEffect(() => {
+    const update = () => setIsOffline(!navigator.onLine);
+    update();
+    window.addEventListener('online', update);
+    window.addEventListener('offline', update);
+    return () => {
+      window.removeEventListener('online', update);
+      window.removeEventListener('offline', update);
+    };
+  }, []);
 
   const fetchPosts = useCallback(async () => {
     const res = await fetch('/api/posts');
@@ -461,7 +476,8 @@ export default function HomePage() {
     return () => { supabase.removeChannel(channel); };
   }, [fetchPosts]);
 
-  // Wetter vom letzten Post laden
+  // Wetter nur laden wenn sich der neueste Post ändert (nicht bei jedem Realtime-Update)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (posts.length === 0) return;
     const last = posts[0]; // posts sind newest-first sortiert
@@ -498,7 +514,7 @@ export default function HomePage() {
         });
       })
       .catch(() => {});
-  }, [posts]);
+  }, [posts[0]?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Kommentar- und Like-Anzahlen laden sobald Posts da sind
   useEffect(() => {
@@ -549,6 +565,13 @@ export default function HomePage() {
           </Link>
         </div>
       </header>
+
+      {/* Offline-Banner */}
+      {isOffline && (
+        <div className="shrink-0 bg-yellow-900/80 border-b border-yellow-700/50 px-4 py-1.5 text-center">
+          <span className="text-yellow-300 text-xs font-medium">📡 Offline — gecachte Daten</span>
+        </div>
+      )}
 
       {/* Lightbox für Map-Popup Bilder */}
       {mapLightboxSrc && typeof document !== 'undefined' && createPortal(

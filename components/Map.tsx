@@ -6,13 +6,66 @@ import { Post } from '@/lib/types';
 interface MapProps {
   posts: Post[];
   onLocationSelect?: (lat: number, lng: number) => void;
-  interactive?: boolean; // true = location picker mode
+  interactive?: boolean;
   selectedLocation?: { lat: number; lng: number } | null;
   commentCounts?: Record<string, number>;
   likeCounts?: Record<string, number>;
   onLikeClick?: (postId: string) => void;
   onCommentClick?: (postId: string) => void;
   onImageExpand?: (url: string) => void;
+}
+
+// XSS-Schutz: HTML-Sonderzeichen in Attributen/Textknoten escapen
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+// Popup-HTML aus Post-Daten bauen — alle User-Inhalte escaped
+function buildPopupContent(
+  post: Post,
+  commentCounts: Record<string, number> | undefined,
+  likeCounts: Record<string, number> | undefined,
+): string {
+  const dateStr = new Date(post.created_at).toLocaleDateString('de-DE', {
+    day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
+  });
+  const likeCount = likeCounts?.[post.id] ?? 0;
+  const commentCount = commentCounts?.[post.id] ?? 0;
+
+  return `
+    <div style="font-family: Inter, sans-serif; color: #f0f8f0; min-width: 200px;">
+      ${post.image_url ? `
+        <div style="position:relative;margin:-1px -1px 0;overflow:hidden;border-radius:12px 12px 0 0;">
+          <img src="${escapeHtml(post.image_url)}" alt="${escapeHtml(post.title)}"
+            style="width:100%;height:160px;object-fit:cover;display:block;" />
+          <button
+            onclick="if(window.__mapImageExpand)window.__mapImageExpand(${JSON.stringify(post.image_url)})"
+            style="position:absolute;bottom:8px;right:8px;background:rgba(0,0,0,0.55);color:white;border:none;border-radius:8px;padding:5px 7px;cursor:pointer;line-height:1;"
+          >⤢</button>
+        </div>
+      ` : ''}
+      <div style="padding: 12px;">
+        <div style="font-size: 11px; color: #4ade80; margin-bottom: 4px;">${escapeHtml(dateStr)}${post.location_name ? ` · ${escapeHtml(post.location_name)}` : ''}</div>
+        <div style="font-size: 15px; font-weight: 600; margin-bottom: 6px; line-height: 1.3;">${escapeHtml(post.title)}</div>
+        ${post.text ? `<div style="font-size: 13px; color: #bbf7d0; line-height: 1.5;">${escapeHtml(post.text)}</div>` : ''}
+        <div style="margin-top:10px;display:flex;gap:8px;">
+          <button
+            onclick="if(window.__mapLikeClick)window.__mapLikeClick(${JSON.stringify(post.id)})"
+            style="background:#1a1a1a;border:1px solid #2a2a2a;color:#f87171;font-size:12px;padding:6px 10px;border-radius:8px;min-width:48px;text-align:center;cursor:pointer;"
+          >❤️ ${likeCount}</button>
+          <button
+            onclick="if(window.__mapCommentClick)window.__mapCommentClick(${JSON.stringify(post.id)})"
+            style="flex:1;background:#14532d;border:1px solid #166534;color:#86efac;font-size:12px;padding:6px 10px;border-radius:8px;cursor:pointer;text-align:left;"
+          >💬 ${commentCount} Kommentar${commentCount !== 1 ? 'e' : ''}</button>
+        </div>
+      </div>
+    </div>
+  `;
 }
 
 export default function Map({
@@ -29,18 +82,26 @@ export default function Map({
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
+  const markerPostIdsRef = useRef<string[]>([]);
   const routeLinesRef = useRef<any[]>([]);
   const selectionMarkerRef = useRef<any>(null);
   const initializingRef = useRef(false);
+  // Counts in Refs halten damit Popup-Update kein Marker-Rebuild auslöst
+  const commentCountsRef = useRef(commentCounts);
+  const likeCountsRef = useRef(likeCounts);
+  const postsRef = useRef(posts);
   const [isLoaded, setIsLoaded] = useState(false);
 
+  useEffect(() => { commentCountsRef.current = commentCounts; }, [commentCounts]);
+  useEffect(() => { likeCountsRef.current = likeCounts; }, [likeCounts]);
+  useEffect(() => { postsRef.current = posts; }, [posts]);
+
+  // Karte initialisieren
   useEffect(() => {
     if (!mapRef.current || mapInstanceRef.current || initializingRef.current) return;
     initializingRef.current = true;
 
-    // Dynamic import to avoid SSR issues
     import('leaflet').then((L) => {
-      // Fix default icon paths
       delete (L.Icon.Default.prototype as any)._getIconUrl;
       L.Icon.Default.mergeOptions({
         iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
@@ -50,12 +111,11 @@ export default function Map({
 
       const map = L.map(mapRef.current!, {
         center: [57.0, -4.2],
-        zoom: interactive ? 6 : 6,
+        zoom: 6,
         zoomControl: true,
         attributionControl: true,
       });
 
-      // OpenStreetMap tile layer — dark-ish style via CartoDB
       L.tileLayer(
         'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
         {
@@ -68,7 +128,6 @@ export default function Map({
       mapInstanceRef.current = map;
       setIsLoaded(true);
 
-      // Location picker mode: click to set position
       if (interactive && onLocationSelect) {
         map.on('click', (e: any) => {
           onLocationSelect(e.latlng.lat, e.latlng.lng);
@@ -84,24 +143,25 @@ export default function Map({
     };
   }, []);
 
-  // Sync posts to markers
+  // Window-Callbacks aktualisieren ohne Marker-Rebuild
   useEffect(() => {
-    if (!isLoaded || !mapInstanceRef.current) return;
-
-    // Globale Callbacks für Popup-Buttons (Leaflet HTML kann keine React-Props aufrufen)
     (window as any).__mapLikeClick = onLikeClick;
     (window as any).__mapCommentClick = onCommentClick;
     (window as any).__mapImageExpand = onImageExpand;
+  }, [onLikeClick, onCommentClick, onImageExpand]);
+
+  // Marker neu aufbauen NUR wenn Posts sich ändern (nicht bei Count-Updates)
+  useEffect(() => {
+    if (!isLoaded || !mapInstanceRef.current) return;
 
     import('leaflet').then((L) => {
-      // Clear old markers
       markersRef.current.forEach((m) => m.remove());
       markersRef.current = [];
+      markerPostIdsRef.current = [];
 
       posts.forEach((post, index) => {
         const isNewest = index === 0;
 
-        // Custom icon
         const iconHtml = `
           <div style="
             width: 36px; height: 36px;
@@ -123,61 +183,35 @@ export default function Map({
         });
 
         const marker = L.marker([post.latitude, post.longitude], { icon });
-
-        const dateStr = new Date(post.created_at).toLocaleDateString('de-DE', {
-          day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
-        });
-
-        const popupContent = `
-          <div style="font-family: Inter, sans-serif; color: #f0f8f0; min-width: 200px;">
-            ${post.image_url ? `
-              <div style="position:relative;margin:-1px -1px 0;overflow:hidden;border-radius:12px 12px 0 0;">
-                <img src="${post.image_url}" alt="${post.title}"
-                  style="width:100%;height:160px;object-fit:cover;display:block;" />
-                <button
-                  onclick="if(window.__mapImageExpand)window.__mapImageExpand('${post.image_url}')"
-                  style="position:absolute;bottom:8px;right:8px;background:rgba(0,0,0,0.55);color:white;border:none;border-radius:8px;padding:5px 7px;cursor:pointer;line-height:1;"
-                >⤢</button>
-              </div>
-            ` : ''}
-            <div style="padding: 12px;">
-              <div style="font-size: 11px; color: #4ade80; margin-bottom: 4px;">${dateStr}${post.location_name ? ` · ${post.location_name}` : ''}</div>
-              <div style="font-size: 15px; font-weight: 600; margin-bottom: 6px; line-height: 1.3;">${post.title}</div>
-              ${post.text ? `<div style="font-size: 13px; color: #bbf7d0; line-height: 1.5;">${post.text}</div>` : ''}
-              <div style="margin-top:10px;display:flex;gap:8px;">
-                <button
-                  onclick="if(window.__mapLikeClick)window.__mapLikeClick('${post.id}')"
-                  style="background:#1a1a1a;border:1px solid #2a2a2a;color:#f87171;font-size:12px;padding:6px 10px;border-radius:8px;min-width:48px;text-align:center;cursor:pointer;"
-                >❤️ ${likeCounts?.[post.id] || 0}</button>
-                <button
-                  onclick="if(window.__mapCommentClick)window.__mapCommentClick('${post.id}')"
-                  style="flex:1;background:#14532d;border:1px solid #166534;color:#86efac;font-size:12px;padding:6px 10px;border-radius:8px;cursor:pointer;text-align:left;"
-                >💬 ${commentCounts?.[post.id] || 0} Kommentar${(commentCounts?.[post.id] || 0) !== 1 ? 'e' : ''}</button>
-              </div>
-            </div>
-          </div>
-        `;
-
-        marker.bindPopup(popupContent, {
-          maxWidth: 280,
-          className: 'custom-popup',
-        });
-
+        marker.bindPopup(
+          buildPopupContent(post, commentCountsRef.current, likeCountsRef.current),
+          { maxWidth: 280, className: 'custom-popup' }
+        );
         marker.addTo(mapInstanceRef.current);
         markersRef.current.push(marker);
+        markerPostIdsRef.current.push(post.id);
       });
 
-      // Fit map to markers if we have posts and not in picker mode
       if (posts.length > 0 && !interactive) {
         const group = L.featureGroup(markersRef.current);
-        mapInstanceRef.current.fitBounds(group.getBounds().pad(0.2), {
-          maxZoom: 10,
-        });
+        mapInstanceRef.current.fitBounds(group.getBounds().pad(0.2), { maxZoom: 10 });
       }
     });
-  }, [posts, isLoaded, interactive, commentCounts, likeCounts, onLikeClick, onCommentClick, onImageExpand]);
+  }, [posts, isLoaded, interactive]);
 
-  // Straßenroute zwischen Posts (OSRM)
+  // Popup-Inhalte aktualisieren wenn Counts sich ändern — kein Marker-Rebuild
+  useEffect(() => {
+    if (!isLoaded || markersRef.current.length === 0) return;
+    postsRef.current.forEach((post) => {
+      const idx = markerPostIdsRef.current.indexOf(post.id);
+      if (idx === -1) return;
+      markersRef.current[idx]?.getPopup()?.setContent(
+        buildPopupContent(post, commentCounts, likeCounts)
+      );
+    });
+  }, [commentCounts, likeCounts, isLoaded]);
+
+  // Straßenroute (OSRM) — alle Requests parallel statt sequentiell
   useEffect(() => {
     if (!isLoaded || !mapInstanceRef.current || interactive) return;
     if (posts.length < 2) return;
@@ -187,41 +221,40 @@ export default function Map({
     );
 
     import('leaflet').then(async (L) => {
-      // Alte Routen entfernen
       routeLinesRef.current.forEach((l) => l.remove());
       routeLinesRef.current = [];
 
       const lineStyle = { color: '#16a34a', weight: 3, opacity: 0.7, dashArray: '8 6' };
 
-      for (let i = 0; i < sorted.length - 1; i++) {
-        const a = sorted[i];
-        const b = sorted[i + 1];
-        try {
-          const res = await fetch(
-            `https://router.project-osrm.org/route/v1/driving/${a.longitude},${a.latitude};${b.longitude},${b.latitude}?overview=full&geometries=geojson`
-          );
-          const data = await res.json();
-          if (data.routes?.[0]?.geometry?.coordinates) {
-            // OSRM gibt [lon, lat] — Leaflet braucht [lat, lon]
-            const latlngs = data.routes[0].geometry.coordinates.map(
-              ([lon, lat]: [number, number]) => [lat, lon] as [number, number]
+      await Promise.all(
+        Array.from({ length: sorted.length - 1 }, async (_, i) => {
+          const a = sorted[i];
+          const b = sorted[i + 1];
+          try {
+            const res = await fetch(
+              `https://router.project-osrm.org/route/v1/driving/${a.longitude},${a.latitude};${b.longitude},${b.latitude}?overview=full&geometries=geojson`
             );
-            const line = L.polyline(latlngs, lineStyle).addTo(mapInstanceRef.current);
+            const data = await res.json();
+            if (data.routes?.[0]?.geometry?.coordinates) {
+              const latlngs = data.routes[0].geometry.coordinates.map(
+                ([lon, lat]: [number, number]) => [lat, lon] as [number, number]
+              );
+              const line = L.polyline(latlngs, lineStyle).addTo(mapInstanceRef.current);
+              routeLinesRef.current.push(line);
+            }
+          } catch {
+            const line = L.polyline(
+              [[a.latitude, a.longitude], [b.latitude, b.longitude]],
+              { ...lineStyle, dashArray: '4 8', opacity: 0.4 }
+            ).addTo(mapInstanceRef.current);
             routeLinesRef.current.push(line);
           }
-        } catch {
-          // Fallback: Luftlinie
-          const line = L.polyline(
-            [[a.latitude, a.longitude], [b.latitude, b.longitude]],
-            { ...lineStyle, dashArray: '4 8', opacity: 0.4 }
-          ).addTo(mapInstanceRef.current);
-          routeLinesRef.current.push(line);
-        }
-      }
+        })
+      );
     });
   }, [posts, isLoaded, interactive]);
 
-  // Sync selection marker (picker mode)
+  // Selection-Marker (Picker-Modus)
   useEffect(() => {
     if (!isLoaded || !mapInstanceRef.current) return;
 

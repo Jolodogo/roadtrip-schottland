@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase';
+import { isRateLimited, getClientIp } from '@/lib/rateLimit';
 
 export async function GET() {
   const supabase = createServerClient();
@@ -11,6 +12,12 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  // Max 30 Likes pro IP pro Stunde (verhindert Spam-Bots)
+  const ip = getClientIp(request);
+  if (isRateLimited(`reactions:${ip}`, 30, 60 * 60 * 1000)) {
+    return NextResponse.json({ error: 'Zu viele Likes. Bitte warten.' }, { status: 429 });
+  }
+
   const { post_id } = await request.json();
   if (!post_id) return NextResponse.json({ error: 'post_id fehlt' }, { status: 400 });
 
