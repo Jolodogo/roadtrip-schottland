@@ -144,11 +144,12 @@ function formatDate(dateStr: string) {
 }
 
 function PostCard({
-  post, isNewest, onDelete, commentCount: initialCount = 0, likeCount: initialLikes = 0, autoScrollTo = false, autoOpenComments = false,
+  post, isNewest, onDelete, onUpdate, commentCount: initialCount = 0, likeCount: initialLikes = 0, autoScrollTo = false, autoOpenComments = false,
 }: {
   post: Post;
   isNewest: boolean;
   onDelete?: (id: string) => void;
+  onUpdate?: (updated: Post) => void;
   commentCount?: number;
   likeCount?: number;
   autoScrollTo?: boolean;
@@ -158,6 +159,14 @@ function PostCard({
   const [deleting, setDeleting] = useState(false);
   const [passcode, setPasscode] = useState('');
   const [deleteError, setDeleteError] = useState('');
+
+  const [editing, setEditing] = useState(false);
+  const [editPasscode, setEditPasscode] = useState('');
+  const [editTitle, setEditTitle] = useState(post.title);
+  const [editText, setEditText] = useState(post.text ?? '');
+  const [editLocationName, setEditLocationName] = useState(post.location_name ?? '');
+  const [editError, setEditError] = useState('');
+  const [saving, setSaving] = useState(false);
 
   const [likes, setLikes] = useState(initialLikes);
   const [liked, setLiked] = useState(false);
@@ -271,6 +280,31 @@ function PostCard({
     }
   }
 
+  async function handleSaveEdit() {
+    if (!editTitle.trim() || saving) return;
+    setSaving(true);
+    setEditError('');
+    const res = await fetch(`/api/posts/${post.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        passcode: editPasscode,
+        title: editTitle,
+        text: editText,
+        location_name: editLocationName,
+      }),
+    });
+    if (res.ok) {
+      const updated: Post = await res.json();
+      onUpdate?.(updated);
+      setEditing(false);
+    } else {
+      const d = await res.json();
+      setEditError(d.error || 'Fehler');
+    }
+    setSaving(false);
+  }
+
   return (
     <div ref={cardRef} className={`rounded-xl overflow-hidden bg-[#1a2e1f] border transition-all ${
       isNewest ? 'border-green-500/50 shadow-lg shadow-green-900/20' : 'border-green-900/30'
@@ -322,9 +356,16 @@ function PostCard({
             {isNewest && (
               <span className="text-[10px] bg-green-600/30 text-green-400 px-2 py-0.5 rounded-full font-medium">Neu</span>
             )}
+            {onUpdate && (
+              <button
+                onClick={() => { setEditing(!editing); setEditError(''); setEditPasscode(''); setEditTitle(post.title); setEditText(post.text ?? ''); setEditLocationName(post.location_name ?? ''); setDeleting(false); }}
+                className="text-green-400/40 hover:text-green-400 text-xs px-1"
+                title="Bearbeiten"
+              >✏️</button>
+            )}
             {onDelete && (
               <button
-                onClick={() => { setDeleting(!deleting); setDeleteError(''); setPasscode(''); }}
+                onClick={() => { setDeleting(!deleting); setDeleteError(''); setPasscode(''); setEditing(false); }}
                 className="text-red-400/40 hover:text-red-400 text-xs px-1"
                 title="Löschen"
               >🗑️</button>
@@ -334,6 +375,58 @@ function PostCard({
         <h3 className="text-white font-semibold text-sm leading-snug mb-1">{post.title}</h3>
         {post.text && (
           <p className="text-green-100/60 text-xs leading-relaxed line-clamp-3">{post.text}</p>
+        )}
+        {editing && (
+          <div className="mt-2 space-y-1.5">
+            <input
+              type="password"
+              placeholder="Passcode"
+              value={editPasscode}
+              onChange={(e) => setEditPasscode(e.target.value)}
+              className="w-full bg-[#0f1712] border border-green-900/50 text-white text-xs px-2 py-1.5 rounded outline-none focus:border-green-600"
+              autoFocus
+            />
+            <input
+              type="text"
+              placeholder="Titel"
+              value={editTitle}
+              onChange={(e) => setEditTitle(e.target.value)}
+              className="w-full bg-[#0f1712] border border-green-900/50 text-white text-xs px-2 py-1.5 rounded outline-none focus:border-green-600"
+              maxLength={80}
+            />
+            <textarea
+              placeholder="Text (optional)"
+              value={editText}
+              onChange={(e) => setEditText(e.target.value)}
+              rows={3}
+              className="w-full bg-[#0f1712] border border-green-900/50 text-white text-xs px-2 py-1.5 rounded outline-none focus:border-green-600 resize-none"
+              maxLength={500}
+            />
+            <input
+              type="text"
+              placeholder="Ort (optional)"
+              value={editLocationName}
+              onChange={(e) => setEditLocationName(e.target.value)}
+              className="w-full bg-[#0f1712] border border-green-900/50 text-white text-xs px-2 py-1.5 rounded outline-none focus:border-green-600"
+              maxLength={60}
+            />
+            <div className="flex gap-1">
+              <button
+                onClick={handleSaveEdit}
+                disabled={saving || !editTitle.trim()}
+                className="flex-1 bg-green-700 hover:bg-green-600 disabled:opacity-50 text-white text-xs px-2 py-1.5 rounded"
+              >
+                {saving ? 'Speichert…' : 'Speichern'}
+              </button>
+              <button
+                onClick={() => { setEditing(false); setEditError(''); }}
+                className="bg-[#0f1712] border border-green-900/40 text-green-400/60 text-xs px-2 py-1.5 rounded"
+              >
+                Abbrechen
+              </button>
+            </div>
+            {editError && <p className="text-red-400 text-[10px]">{editError}</p>}
+          </div>
         )}
         {deleting && (
           <div className="mt-2 flex gap-1">
@@ -595,6 +688,10 @@ export default function HomePage() {
     setPosts((prev) => prev.filter((p) => p.id !== id));
   }, []);
 
+  const handleUpdate = useCallback((updated: Post) => {
+    setPosts((prev) => prev.map((p) => p.id === updated.id ? updated : p));
+  }, []);
+
   const tripDays = posts.length > 0
     ? Math.ceil((Date.now() - new Date(posts[posts.length - 1].created_at).getTime()) / 86400000)
     : 0;
@@ -691,7 +788,7 @@ export default function HomePage() {
                 </div>
               ) : (
                 posts.map((post, i) => (
-                  <PostCard key={post.id} post={post} isNewest={i === 0} onDelete={handleDelete}
+                  <PostCard key={post.id} post={post} isNewest={i === 0} onDelete={handleDelete} onUpdate={handleUpdate}
                     commentCount={commentCounts[post.id] || 0}
                     likeCount={likeCounts[post.id] || 0}
                     autoScrollTo={scrollToPost === post.id} />
@@ -795,7 +892,7 @@ export default function HomePage() {
                   </div>
                 ) : (
                   posts.map((post, i) => (
-                    <PostCard key={post.id} post={post} isNewest={i === 0} onDelete={handleDelete}
+                    <PostCard key={post.id} post={post} isNewest={i === 0} onDelete={handleDelete} onUpdate={handleUpdate}
                       commentCount={commentCounts[post.id] || 0}
                       likeCount={likeCounts[post.id] || 0}
                       autoScrollTo={scrollToPost === post.id}
