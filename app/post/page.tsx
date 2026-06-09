@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import imageCompression from 'browser-image-compression';
 
 const Map = dynamic(() => import('@/components/Map'), { ssr: false });
@@ -10,6 +11,7 @@ const Map = dynamic(() => import('@/components/Map'), { ssr: false });
 type Step = 'passcode' | 'form';
 
 export default function PostPage() {
+  const router = useRouter();
   const [step, setStep] = useState<Step>('passcode');
   const [passcode, setPasscode] = useState('');
   const [passcodeError, setPasscodeError] = useState('');
@@ -171,6 +173,8 @@ export default function PostPage() {
       }
 
       setSubmitted(true);
+      // Router-Cache invalidieren damit Hauptseite beim Zurücknavigieren neu lädt
+      router.refresh();
       // Push-Notification an alle Abonnenten senden (fire-and-forget)
       fetch('/api/push/notify', {
         method: 'POST',

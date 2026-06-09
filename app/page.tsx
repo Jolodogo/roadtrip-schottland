@@ -663,7 +663,7 @@ export default function HomePage() {
   useEffect(() => {
     fetchPosts();
 
-    // Realtime subscription
+    // Realtime subscription — INSERT, UPDATE, DELETE
     const channel = supabase
       .channel('posts-realtime')
       .on(
@@ -672,6 +672,20 @@ export default function HomePage() {
         (payload) => {
           setPosts((prev) => [payload.new as Post, ...prev]);
           setNewPostCount((n) => n + 1);
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'posts' },
+        (payload) => {
+          setPosts((prev) => prev.map((p) => p.id === payload.new.id ? payload.new as Post : p));
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'posts' },
+        (payload) => {
+          setPosts((prev) => prev.filter((p) => p.id !== payload.old.id));
         }
       )
       .subscribe();
