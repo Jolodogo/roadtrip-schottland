@@ -123,6 +123,12 @@ git push
 - Neuer Post: `router.refresh()` nach erfolgreichem POST → Hauptseite lädt sofort neu
 - Supabase Realtime: UPDATE + DELETE Events hinzugefügt (war nur INSERT) → Änderungen sofort auf allen Geräten
 
+### ✅ Tagesansicht / Post-Gruppierung (Session 09.06.2026)
+- Posts werden nach Kalendertag gruppiert (Desktop-Sidebar + Mobile Bottom Sheet)
+- `groupByDay()` Helper: Map nach `YYYY-MM-DD`, `dayNum` aus Einfüge-Reihenfolge (nicht `day_number` Feld)
+- Trennlinie mit "Tag X · Mo, 14. Juli" zwischen Tagesgruppen
+- `new globalThis.Map<>()` statt `new Map<>()` — verhindert TypeScript-Konflikt mit importierter Map-Komponente
+
 ### 🔲 Nächste große Aufgabe — Multi-Trip App auf eigenem VPS
 
 **Ziel:** App für beliebige Urlaube nutzbar, auf Hostinger VPS selbst gehostet
@@ -319,6 +325,31 @@ supabase-schema.sql     # SQL für alle Tabellen (posts, comments, reactions, pu
 2. ✅ `supabase-schema.sql` im SQL Editor ausgeführt (posts + comments + reactions)
 3. ✅ Realtime aktiviert: Database → Publications → supabase_realtime → posts
 4. ✅ API-Keys in `.env.local` und Vercel Environment Variables eingetragen
+
+---
+
+## Potentielle Verbesserungen (Ideen aus Session 09.06.2026)
+
+Noch nicht umgesetzt — nach Belieben priorisieren:
+
+### UX / Anzeige
+- **Galerie-Ansicht**: alle Fotos der Reise als chronologisches Raster (eigene Seite `/gallery`)
+- **Vollbild-Karte**: Map ohne Sidebar/Sheet auf Knopfdruck (Immersion für Betrachter)
+- **Tages-Zusammenfassung**: am Ende jedes Tags automatische Stats (Strecke, Stopps, Wetter) als Card
+- **Post-Suche/Filter**: Suchfeld für Posts nach Titel oder Ortsname
+
+### Vor der Reise
+- **Countdown-Timer**: auf Startseite sichtbar solange noch keine Posts vorhanden — zeigt "Noch X Tage bis es losgeht"
+
+### Teilen & Export
+- **Post als Bild teilen**: Share-Button → Canvas API rendert Foto + Titel + Ort als PNG → Web Share API
+- **Reisebericht exportieren**: alle Posts als schön formatiertes HTML/PDF zum Ausdrucken
+
+### Technisch
+- **Offline Post-Queue**: Posts lokal zwischenspeichern (IndexedDB) wenn offline, bei Verbindung automatisch übertragen
+- **Videopost-Support**: kurze Videos (max 30s, ~15 MB) — Upload zu Supabase Storage, `<video autoPlay muted loop>`
+- **Elevation-Profil**: Höhenprofil der Route via Open-Elevation API (kostenlos)
+- **Modularisierung**: `app/page.tsx` ist zu groß (~1000 Zeilen) → aufteilen in `components/PostCard.tsx`, `components/BottomSheet.tsx`, `components/StatsPanel.tsx`, `components/WeatherWidget.tsx`
 
 ---
 

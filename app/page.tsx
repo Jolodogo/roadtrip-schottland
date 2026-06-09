@@ -55,6 +55,20 @@ function calcStats(posts: Post[]) {
   return { totalKm, days, stops: posts.length, kmPerDay: Math.round(totalKm / days) };
 }
 
+// Posts nach Kalendertag gruppieren, neuester Tag zuerst
+function groupByDay(posts: Post[]): { dateLabel: string; dayNum: number; posts: Post[] }[] {
+  const map = new globalThis.Map<string, { dateLabel: string; dayNum: number; posts: Post[] }>();
+  posts.forEach((post) => {
+    const d = new Date(post.created_at);
+    const key = d.toISOString().slice(0, 10); // YYYY-MM-DD
+    const dateLabel = d.toLocaleDateString('de-DE', { weekday: 'short', day: 'numeric', month: 'long' });
+    if (!map.has(key)) map.set(key, { dateLabel, dayNum: map.size + 1, posts: [] });
+    map.get(key)!.posts.push(post);
+  });
+  // Neuester Tag zuerst (posts kommen bereits desc sortiert rein)
+  return Array.from(map.values());
+}
+
 function StatsPanel({ posts }: { posts: Post[] }) {
   const s = calcStats(posts);
   const items = [
@@ -855,11 +869,22 @@ export default function HomePage() {
                   <p className="text-green-400/20 text-xs mt-1">Seid ihr schon unterwegs?</p>
                 </div>
               ) : (
-                posts.map((post, i) => (
-                  <PostCard key={post.id} post={post} isNewest={i === 0} onDelete={handleDelete} onUpdate={handleUpdate}
-                    commentCount={commentCounts[post.id] || 0}
-                    likeCount={likeCounts[post.id] || 0}
-                    autoScrollTo={scrollToPost === post.id} />
+                groupByDay(posts).map((group) => (
+                  <div key={group.dateLabel}>
+                    <div className="flex items-center gap-2 mb-2 mt-1">
+                      <div className="flex-1 h-px bg-green-900/40" />
+                      <span className="text-green-400/50 text-[10px] uppercase tracking-wider font-medium whitespace-nowrap">
+                        Tag {group.dayNum} · {group.dateLabel}
+                      </span>
+                      <div className="flex-1 h-px bg-green-900/40" />
+                    </div>
+                    {group.posts.map((post) => (
+                      <PostCard key={post.id} post={post} isNewest={posts[0]?.id === post.id} onDelete={handleDelete} onUpdate={handleUpdate}
+                        commentCount={commentCounts[post.id] || 0}
+                        likeCount={likeCounts[post.id] || 0}
+                        autoScrollTo={scrollToPost === post.id} />
+                    ))}
+                  </div>
                 ))
               )}
             </div>
@@ -959,12 +984,26 @@ export default function HomePage() {
                     <p className="text-green-400/40 text-sm">Noch keine Posts.</p>
                   </div>
                 ) : (
-                  posts.map((post, i) => (
-                    <PostCard key={post.id} post={post} isNewest={i === 0} onDelete={handleDelete} onUpdate={handleUpdate}
-                      commentCount={commentCounts[post.id] || 0}
-                      likeCount={likeCounts[post.id] || 0}
-                      autoScrollTo={scrollToPost === post.id}
-                      autoOpenComments={openCommentForPost === post.id} />
+                  groupByDay(posts).map((group) => (
+                    <div key={group.dateLabel}>
+                      {/* Tag-Trennlinie */}
+                      <div className="flex items-center gap-2 mb-2 mt-1">
+                        <div className="flex-1 h-px bg-green-900/40" />
+                        <span className="text-green-400/50 text-[10px] uppercase tracking-wider font-medium whitespace-nowrap">
+                          Tag {group.dayNum} · {group.dateLabel}
+                        </span>
+                        <div className="flex-1 h-px bg-green-900/40" />
+                      </div>
+                      <div className="space-y-3">
+                        {group.posts.map((post, i) => (
+                          <PostCard key={post.id} post={post} isNewest={posts[0]?.id === post.id} onDelete={handleDelete} onUpdate={handleUpdate}
+                            commentCount={commentCounts[post.id] || 0}
+                            likeCount={likeCounts[post.id] || 0}
+                            autoScrollTo={scrollToPost === post.id}
+                            autoOpenComments={openCommentForPost === post.id} />
+                        ))}
+                      </div>
+                    </div>
                   ))
                 )}
               </div>
