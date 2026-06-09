@@ -542,6 +542,8 @@ export default function HomePage() {
   const [mapLightboxSrc, setMapLightboxSrc] = useState<string | null>(null);
   const [isOffline, setIsOffline] = useState(false);
   const [pushState, setPushState] = useState<'idle' | 'loading' | 'subscribed' | 'denied'>('idle');
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
   const touchStartY = useRef<number | null>(null);
 
   // Online/Offline-Status überwachen
@@ -725,7 +727,7 @@ export default function HomePage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {typeof window !== 'undefined' && 'Notification' in window && pushState !== 'denied' && (
+          {mounted && 'Notification' in window && pushState !== 'denied' && (
             <button
               onClick={handlePushSubscribe}
               disabled={pushState === 'loading'}
