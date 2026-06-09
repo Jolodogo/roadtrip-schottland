@@ -120,8 +120,12 @@ git push
 - Bestehende Posts: zeigen weiterhin ihr einzelnes Bild (image_url)
 
 ### ✅ Realtime-Aktualisierungen (Session 09.06.2026)
-- Neuer Post: `router.refresh()` nach erfolgreichem POST → Hauptseite lädt sofort neu
+- Neuer Post: `router.refresh()` nach erfolgreichem POST → invalidiert Next.js Server-Cache
 - Supabase Realtime: UPDATE + DELETE Events hinzugefügt (war nur INSERT) → Änderungen sofort auf allen Geräten
+- `visibilitychange` Event in `app/page.tsx` → `fetchPosts()` bei App-Rückkehr (PWA-Pattern)
+  - Deckt ab: Rückkehr von /post, App-Switch, Tab-Wechsel, PWA Vordergrund
+  - **WICHTIG:** Dieses Pattern IMMER verwenden wenn Daten nach Navigation aktuell sein müssen
+  - Grund: Next.js Client-Router hält Komponente im Speicher → kein Remount → kein fetchPosts ohne visibilitychange
 
 ### ✅ Tagesansicht / Post-Gruppierung (Session 09.06.2026)
 - Posts werden nach Kalendertag gruppiert (Desktop-Sidebar + Mobile Bottom Sheet)

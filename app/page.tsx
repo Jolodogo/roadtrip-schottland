@@ -674,6 +674,16 @@ export default function HomePage() {
     setLoading(false);
   }, []);
 
+  // Posts neu laden wenn App wieder in den Vordergrund kommt (PWA-Pattern)
+  // Deckt ab: Rückkehr von /post, App-Switch, Tab-Wechsel
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') fetchPosts();
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, [fetchPosts]);
+
   useEffect(() => {
     fetchPosts();
 
