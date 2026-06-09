@@ -6,6 +6,7 @@ export interface Post {
   latitude: number;
   longitude: number;
   image_url: string | null;
+  image_urls: string[];
   location_name: string | null;
   day_number: number | null;
 }
@@ -24,6 +25,7 @@ export interface CreatePostPayload {
   latitude: number;
   longitude: number;
   image_url?: string;
+  image_urls?: string[];
   location_name?: string;
   day_number?: number;
   passcode: string;

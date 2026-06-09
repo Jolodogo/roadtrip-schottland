@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Ungültiger Passcode' }, { status: 401 });
   }
 
-  const { title, text, latitude, longitude, image_url, location_name, day_number } = postData;
+  const { title, text, latitude, longitude, image_url, image_urls, location_name, day_number } = postData;
 
   if (!title || latitude === undefined || longitude === undefined) {
     return NextResponse.json({ error: 'Titel und Position sind erforderlich' }, { status: 400 });
@@ -39,9 +39,13 @@ export async function POST(request: NextRequest) {
 
   const supabase = createServerClient();
 
+  // image_url = erstes Bild (Rückwärtskompatibilität), image_urls = alle Bilder
+  const allImages = image_urls ?? (image_url ? [image_url] : []);
+  const primaryImage = allImages[0] ?? image_url ?? null;
+
   const { data, error } = await supabase
     .from('posts')
-    .insert([{ title, text, latitude, longitude, image_url, location_name, day_number }])
+    .insert([{ title, text, latitude, longitude, image_url: primaryImage, image_urls: allImages, location_name, day_number }])
     .select()
     .single();
 
@@ -61,17 +65,18 @@ export async function DELETE(request: NextRequest) {
 
   const supabase = createServerClient();
 
-  // Bild aus Storage löschen falls vorhanden
-  const { data: post } = await supabase.from('posts').select('image_url').eq('id', id).single();
-  if (post?.image_url) {
+  // Alle Bilder aus Storage löschen
+  const { data: post } = await supabase.from('posts').select('image_url, image_urls').eq('id', id).single();
+  const allUrls = post?.image_urls?.length ? post.image_urls : (post?.image_url ? [post.image_url] : []);
+  if (allUrls.length) {
     try {
-      const path = new URL(post.image_url).pathname.split('/trip-photos/')[1];
-      if (path) {
-        const { error: storageError } = await supabase.storage.from('trip-photos').remove([path]);
+      const paths = allUrls.map((u: string) => new URL(u).pathname.split('/trip-photos/')[1]).filter(Boolean);
+      if (paths.length) {
+        const { error: storageError } = await supabase.storage.from('trip-photos').remove(paths);
         if (storageError) console.error('Storage-Löschfehler:', storageError.message);
       }
     } catch (e) {
-      console.error('Fehler beim Parsen der Bild-URL:', e);
+      console.error('Fehler beim Parsen der Bild-URLs:', e);
     }
   }
 

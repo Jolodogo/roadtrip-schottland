@@ -191,6 +191,9 @@ function PostCard({
     setLiking(false);
   }
 
+  const [imgIndex, setImgIndex] = useState(0);
+  const images = post.image_urls?.length ? post.image_urls : (post.image_url ? [post.image_url] : []);
+
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [comments, setComments] = useState<Comment[]>([]);
@@ -310,9 +313,30 @@ function PostCard({
     <div ref={cardRef} className={`rounded-xl overflow-hidden bg-[#1a2e1f] border transition-all ${
       isNewest ? 'border-green-500/50 shadow-lg shadow-green-900/20' : 'border-green-900/30'
     }`}>
-      {post.image_url && (
+      {images.length > 0 && (
         <div className="relative">
-          <img src={post.image_url} alt={post.title} className="w-full h-44 object-cover" />
+          <img src={images[imgIndex]} alt={post.title} className="w-full h-44 object-cover" />
+          {/* Prev/Next bei mehreren Bildern */}
+          {images.length > 1 && (
+            <>
+              <button
+                onClick={() => setImgIndex((i) => (i - 1 + images.length) % images.length)}
+                className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full w-7 h-7 flex items-center justify-center text-sm"
+              >‹</button>
+              <button
+                onClick={() => setImgIndex((i) => (i + 1) % images.length)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full w-7 h-7 flex items-center justify-center text-sm"
+              >›</button>
+              {/* Punkt-Indikatoren */}
+              <div className="absolute bottom-8 left-0 right-0 flex justify-center gap-1">
+                {images.map((_, i) => (
+                  <button key={i} onClick={() => setImgIndex(i)}
+                    className={`w-1.5 h-1.5 rounded-full transition-colors ${i === imgIndex ? 'bg-white' : 'bg-white/40'}`}
+                  />
+                ))}
+              </div>
+            </>
+          )}
           <button
             onClick={() => setLightboxOpen(true)}
             className="absolute bottom-2 right-2 bg-black/50 hover:bg-black/70 text-white rounded-lg p-1.5 backdrop-blur"
@@ -327,7 +351,7 @@ function PostCard({
       )}
 
       {/* Lightbox — via Portal in document.body, umgeht CSS-transform des Bottom Sheets */}
-      {lightboxOpen && post.image_url && typeof document !== 'undefined' && createPortal(
+      {lightboxOpen && images.length > 0 && typeof document !== 'undefined' && createPortal(
         <div
           className="fixed inset-0 z-[9999] bg-black/90 flex items-center justify-center"
           onClick={() => setLightboxOpen(false)}
@@ -336,8 +360,21 @@ function PostCard({
             onClick={() => setLightboxOpen(false)}
             className="absolute top-4 right-4 bg-white/10 hover:bg-white/20 text-white rounded-full w-10 h-10 flex items-center justify-center text-lg font-light"
           >✕</button>
+          {images.length > 1 && (
+            <>
+              <button onClick={(e) => { e.stopPropagation(); setImgIndex((i) => (i - 1 + images.length) % images.length); }}
+                className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/20 text-white rounded-full w-10 h-10 flex items-center justify-center text-2xl">‹</button>
+              <button onClick={(e) => { e.stopPropagation(); setImgIndex((i) => (i + 1) % images.length); }}
+                className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/20 text-white rounded-full w-10 h-10 flex items-center justify-center text-2xl">›</button>
+              <div className="absolute bottom-6 left-0 right-0 flex justify-center gap-1.5">
+                {images.map((_, i) => (
+                  <div key={i} className={`w-2 h-2 rounded-full ${i === imgIndex ? 'bg-white' : 'bg-white/30'}`} />
+                ))}
+              </div>
+            </>
+          )}
           <img
-            src={post.image_url}
+            src={images[imgIndex]}
             alt={post.title}
             className="max-w-full max-h-full object-contain p-4"
             onClick={(e) => e.stopPropagation()}

@@ -21,8 +21,8 @@ export default function PostPage() {
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [locationMode, setLocationMode] = useState<'gps' | 'map'>('gps');
   const [gpsLoading, setGpsLoading] = useState(false);
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [compressing, setCompressing] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -76,26 +76,47 @@ export default function PostPage() {
     );
   }, []);
 
+  const MAX_IMAGES = 5;
+
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    // Vorschau sofort anzeigen (Original), Komprimierung im Hintergrund
-    setImageFile(file);
-    setImagePreview(URL.createObjectURL(file));
+    const selected = Array.from(e.target.files ?? []);
+    if (!selected.length) return;
+    if (fileInputRef.current) fileInputRef.current.value = '';
+
+    const remaining = MAX_IMAGES - imageFiles.length;
+    const toAdd = selected.slice(0, remaining);
+
+    // Vorschauen sofort anzeigen
+    const previews = toAdd.map((f) => URL.createObjectURL(f));
+    setImagePreviews((prev) => [...prev, ...previews]);
+    setImageFiles((prev) => [...prev, ...toAdd]);
+
     setCompressing(true);
-    try {
-      const compressed = await imageCompression(file, {
-        maxWidthOrHeight: 1200,
-        initialQuality: 0.85,
-        useWebWorker: true,
-        fileType: 'image/jpeg',
-        maxSizeMB: 2,
-      });
-      setImageFile(compressed);
-    } catch {
-      // Fallback: Original hochladen wenn Komprimierung fehlschlägt
-    }
+    const compressed = await Promise.all(
+      toAdd.map(async (f) => {
+        try {
+          return await imageCompression(f, {
+            maxWidthOrHeight: 1200,
+            initialQuality: 0.85,
+            useWebWorker: true,
+            fileType: 'image/jpeg',
+            maxSizeMB: 2,
+          });
+        } catch {
+          return f;
+        }
+      })
+    );
+    setImageFiles((prev) => {
+      const unchanged = prev.slice(0, prev.length - toAdd.length);
+      return [...unchanged, ...compressed];
+    });
     setCompressing(false);
+  };
+
+  const removeImage = (idx: number) => {
+    setImageFiles((prev) => prev.filter((_, i) => i !== idx));
+    setImagePreviews((prev) => prev.filter((_, i) => i !== idx));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -108,22 +129,19 @@ export default function PostPage() {
     setSubmitting(true);
 
     try {
-      let image_url: string | undefined;
-
-      // Upload image first if present
-      if (imageFile) {
+      // Alle Bilder hochladen
+      const image_urls: string[] = [];
+      for (const file of imageFiles) {
         const fd = new FormData();
-        fd.append('file', imageFile);
+        fd.append('file', file);
         const uploadRes = await fetch('/api/upload', {
           method: 'POST',
           headers: { 'x-passcode': passcode.trim() },
           body: fd,
         });
         const uploadData = await uploadRes.json();
-        if (!uploadRes.ok) {
-          throw new Error(uploadData.error || 'Upload fehlgeschlagen');
-        }
-        image_url = uploadData.url;
+        if (!uploadRes.ok) throw new Error(uploadData.error || 'Upload fehlgeschlagen');
+        image_urls.push(uploadData.url);
       }
 
       // Create post
@@ -135,7 +153,8 @@ export default function PostPage() {
           text: text.trim() || undefined,
           latitude: location.lat,
           longitude: location.lng,
-          image_url,
+          image_url: image_urls[0],
+          image_urls,
           location_name: locationName.trim() || undefined,
           passcode: passcode.trim(),
         }),
@@ -174,8 +193,8 @@ export default function PostPage() {
     setText('');
     setLocationName('');
     setLocation(null);
-    setImageFile(null);
-    setImagePreview(null);
+    setImageFiles([]);
+    setImagePreviews([]);
     setSubmitted(false);
     setError('');
   };
@@ -255,41 +274,51 @@ export default function PostPage() {
       <form onSubmit={handleSubmit} className="p-4 space-y-5 pb-24">
         {/* Photo upload */}
         <div>
-          <label className="block text-green-300/70 text-xs font-medium mb-2 uppercase tracking-wider">Foto</label>
-          {imagePreview ? (
-            <div className="relative rounded-xl overflow-hidden">
-              <img src={imagePreview} alt="Vorschau" className="w-full h-56 object-cover" />
-              {compressing && (
-                <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                  <span className="bg-black/70 text-white text-xs px-3 py-1.5 rounded-full animate-pulse">
-                    ⚙️ Komprimiert…
-                  </span>
+          <label className="block text-green-300/70 text-xs font-medium mb-2 uppercase tracking-wider">
+            Fotos {imagePreviews.length > 0 && <span className="text-green-500/50 normal-case font-normal">{imagePreviews.length}/{MAX_IMAGES}</span>}
+          </label>
+          {imagePreviews.length > 0 && (
+            <div className="grid grid-cols-3 gap-2 mb-2">
+              {imagePreviews.map((src, idx) => (
+                <div key={idx} className="relative rounded-lg overflow-hidden aspect-square">
+                  <img src={src} alt="" className="w-full h-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => removeImage(idx)}
+                    className="absolute top-1 right-1 bg-black/60 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm leading-none"
+                  >×</button>
                 </div>
+              ))}
+              {imagePreviews.length < MAX_IMAGES && (
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="aspect-square rounded-lg border-2 border-dashed border-green-800 bg-[#1a2e1f] flex flex-col items-center justify-center gap-1 text-green-400/50 hover:border-green-600 hover:text-green-400 transition-colors"
+                >
+                  <span className="text-2xl">+</span>
+                </button>
               )}
-              <button
-                type="button"
-                onClick={() => { setImageFile(null); setImagePreview(null); setCompressing(false); if (fileInputRef.current) fileInputRef.current.value = ''; }}
-                className="absolute top-2 right-2 bg-black/60 text-white rounded-full w-8 h-8 flex items-center justify-center text-lg leading-none"
-              >
-                ×
-              </button>
             </div>
-          ) : (
+          )}
+          {imagePreviews.length === 0 && (
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
               className="w-full h-44 rounded-xl border-2 border-dashed border-green-800 bg-[#1a2e1f] flex flex-col items-center justify-center gap-2 text-green-400/60 hover:border-green-600 hover:text-green-400 transition-colors active:scale-[0.98]"
             >
               <span className="text-4xl">📸</span>
-              <span className="text-sm font-medium">Foto auswählen</span>
-              <span className="text-xs text-green-400/30">JPG, PNG, HEIC · max. 10 MB</span>
+              <span className="text-sm font-medium">Fotos auswählen</span>
+              <span className="text-xs text-green-400/30">JPG, PNG, HEIC · max. 5 Bilder</span>
             </button>
+          )}
+          {compressing && (
+            <p className="text-xs text-green-400/50 text-center mt-1 animate-pulse">⚙️ Komprimiert…</p>
           )}
           <input
             ref={fileInputRef}
             type="file"
             accept="image/jpeg,image/png,image/webp,image/heic"
-            capture="environment"
+            multiple
             onChange={handleImageChange}
             className="hidden"
           />
