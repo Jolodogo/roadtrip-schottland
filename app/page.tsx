@@ -736,7 +736,7 @@ export default function HomePage() {
           >
             <div className="w-10 h-1 bg-green-700/50 rounded-full mb-2" />
             <div className="w-full flex items-center justify-between px-4">
-              <span className="text-green-300/60 text-[10px] font-semibold uppercase tracking-wider">
+              <span className="text-green-300/70 text-sm font-semibold uppercase tracking-wider">
                 Updates
               </span>
               {newPostCount > 0 && (
@@ -744,7 +744,7 @@ export default function HomePage() {
                   {newPostCount} neu
                 </span>
               )}
-              <span className="text-green-400/40 text-xs">{sheetExpanded ? '↓' : '↑'}</span>
+              <span className="text-green-400/60 text-lg">{sheetExpanded ? '↓' : '↑'}</span>
             </div>
           </div>
 
