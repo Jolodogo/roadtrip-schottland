@@ -666,7 +666,7 @@ export default function HomePage() {
   }, []);
 
   const fetchPosts = useCallback(async () => {
-    const res = await fetch('/api/posts');
+    const res = await fetch('/api/posts', { cache: 'no-store' });
     if (res.ok) {
       const data = await res.json();
       setPosts(data);

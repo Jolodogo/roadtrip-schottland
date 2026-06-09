@@ -14,7 +14,9 @@ export async function GET() {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json(data);
+  return NextResponse.json(data, {
+    headers: { 'Cache-Control': 'no-store' },
+  });
 }
 
 export async function POST(request: NextRequest) {
