@@ -112,6 +112,13 @@ git push
 - Map-Popup onclick-Callbacks: `JSON.stringify` → `data-*` Attribute + `this.dataset` (Bug-Fix)
 - Anleitung: `public/anleitung.html` — erreichbar unter `/anleitung.html`, druckbar als PDF
 
+### ✅ Mehrere Bilder pro Post (Session 09.06.2026)
+- Supabase: `image_urls TEXT[] DEFAULT '{}'` Spalte in `posts` (SQL ausgeführt)
+- Upload: max. 5 Bilder, Komprimierung parallel, Thumbnail-Grid im Formular
+- API: `image_urls` Array + `image_url` (erstes Bild, Rückwärtskompatibilität)
+- PostCard: Karussell mit ‹ › Prev/Next + Punkt-Indikatoren, Lightbox für jedes Bild
+- Bestehende Posts: zeigen weiterhin ihr einzelnes Bild (image_url)
+
 ### 🔲 Keine offenen Aufgaben
 
 ---
