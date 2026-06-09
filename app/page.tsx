@@ -6,6 +6,7 @@ import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { Post, Comment } from '@/lib/types';
+import { Bell, BellOff, Loader2, Heart, MessageCircle, Trash2, Pencil, MapPin, Plus } from 'lucide-react';
 
 // Konvertiert VAPID Public Key vom Base64-Format in ArrayBuffer für pushManager.subscribe()
 function urlBase64ToUint8Array(base64String: string): ArrayBuffer {
@@ -107,7 +108,7 @@ function WeatherWidget({ weather, location }: { weather: WeatherData | null; loc
   const tmrw = wmoInfo(weather.tomorrowCode);
   return (
     <div className="px-3 pb-3 space-y-3">
-      {location && <div className="text-green-400/40 text-[10px] truncate mt-1">📍 {location}</div>}
+      {location && <div className="text-green-400/40 text-[10px] truncate mt-1 flex items-center gap-1"><MapPin className="w-3 h-3 shrink-0" strokeWidth={1.5} />{location}</div>}
       {/* Aktuell */}
       <div className="bg-[#0f1712] border border-green-900/30 rounded-lg p-3 flex items-center justify-between">
         <div>
@@ -361,14 +362,14 @@ function PostCard({
                 onClick={() => { setEditing(!editing); setEditError(''); setEditPasscode(''); setEditTitle(post.title); setEditText(post.text ?? ''); setEditLocationName(post.location_name ?? ''); setDeleting(false); }}
                 className="text-green-400/40 hover:text-green-400 text-xs px-1"
                 title="Bearbeiten"
-              >✏️</button>
+              ><Pencil className="w-4 h-4" strokeWidth={1.5} /></button>
             )}
             {onDelete && (
               <button
                 onClick={() => { setDeleting(!deleting); setDeleteError(''); setPasscode(''); setEditing(false); }}
                 className="text-red-400/40 hover:text-red-400 text-xs px-1"
                 title="Löschen"
-              >🗑️</button>
+              ><Trash2 className="w-4 h-4" strokeWidth={1.5} /></button>
             )}
           </div>
         </div>
@@ -455,7 +456,7 @@ function PostCard({
           className={`flex items-center gap-1.5 px-3 py-2 text-xs transition-colors ${liked ? 'text-red-400' : 'text-green-400/40 hover:text-red-400/70'}`}
           title={liked ? 'Bereits geliked' : 'Liken'}
         >
-          <span>{liked ? '❤️' : '🤍'}</span>
+          <Heart className="w-4 h-4" strokeWidth={1.5} fill={liked ? 'currentColor' : 'none'} />
           <span>{likes > 0 ? likes : ''}</span>
         </button>
         <div className="w-px h-4 bg-green-900/20" />
@@ -463,7 +464,7 @@ function PostCard({
           onClick={toggleComments}
           className="flex-1 flex items-center justify-between px-3 py-2 text-green-400/50 hover:text-green-400/80 transition-colors text-xs"
         >
-        <span>💬 {commentCount === 1 ? '1 Kommentar' : `${commentCount} Kommentare`}</span>
+        <span className="flex items-center gap-1.5"><MessageCircle className="w-4 h-4" strokeWidth={1.5} />{commentCount === 1 ? '1 Kommentar' : `${commentCount} Kommentare`}</span>
           <span>{commentsOpen ? '▲' : '▼'}</span>
         </button>
       </div>
@@ -722,11 +723,11 @@ export default function HomePage() {
               }`}
             >
               {pushState === 'loading' ? (
-                <span className="animate-spin text-xs">⏳</span>
+                <Loader2 className="w-4 h-4 animate-spin" strokeWidth={1.5} />
               ) : pushState === 'subscribed' ? (
-                '🔔'
+                <Bell className="w-4 h-4" strokeWidth={1.5} />
               ) : (
-                '🔕'
+                <BellOff className="w-4 h-4" strokeWidth={1.5} />
               )}
             </button>
           )}
@@ -734,7 +735,7 @@ export default function HomePage() {
             href="/post"
             className="flex items-center gap-1.5 px-3 py-1.5 bg-green-700 hover:bg-green-600 text-white text-xs font-semibold rounded-lg transition-colors active:scale-[0.97]"
           >
-            + Post
+            <Plus className="w-3.5 h-3.5" strokeWidth={2} />Post
           </Link>
         </div>
       </header>
