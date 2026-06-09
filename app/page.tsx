@@ -61,7 +61,7 @@ function StatsPanel({ posts }: { posts: Post[] }) {
     { label: 'Strecke', value: `${s.totalKm}`, unit: 'km' },
     { label: 'Reisetage', value: `${s.days}`, unit: 'Tage' },
     { label: 'Stopps', value: `${s.stops}`, unit: '' },
-    { label: 'km/Tag', value: `${s.kmPerDay}`, unit: 'Ø' },
+    { label: 'Strecke/Tag', value: `${s.kmPerDay}`, unit: 'km' },
   ];
   return (
     <div className="grid grid-cols-2 gap-2 p-3">
@@ -867,7 +867,7 @@ export default function HomePage() {
                     { label: 'Strecke', value: `${s.totalKm} km` },
                     { label: 'Tage', value: `${s.days}` },
                     { label: 'Stopps', value: `${s.stops}` },
-                    { label: 'km/Tag', value: `${s.kmPerDay}` },
+                    { label: 'Strecke/Tag', value: `${s.kmPerDay} km` },
                   ].map(({ label, value }) => (
                     <div key={label} className="bg-[#0f1712] border border-green-900/30 rounded px-2 py-1.5 text-center">
                       <div className="text-green-400/40 text-[8px] uppercase">{label}</div>
