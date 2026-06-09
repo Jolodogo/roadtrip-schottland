@@ -59,7 +59,7 @@ function StatsPanel({ posts }: { posts: Post[] }) {
   const s = calcStats(posts);
   const items = [
     { label: 'Strecke', value: `${s.totalKm}`, unit: 'km' },
-    { label: 'Reisetage', value: `${s.days}`, unit: 'Tage' },
+    { label: 'Reisetage', value: `${s.days}`, unit: '' },
     { label: 'Stopps', value: `${s.stops}`, unit: '' },
     { label: 'Strecke/Tag', value: `${s.kmPerDay}`, unit: 'km' },
   ];
