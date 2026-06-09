@@ -59,6 +59,21 @@ CREATE POLICY "Jeder kann Kommentare lesen"
 -- Schreiben via Service Role Key (API Route) – kein direktes Client-INSERT nötig
 
 -- ============================================================
+-- NEU: Push-Subscriptions (manuell im SQL Editor ausführen)
+-- ============================================================
+
+CREATE TABLE push_subscriptions (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  endpoint TEXT UNIQUE NOT NULL,
+  p256dh TEXT NOT NULL,
+  auth TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+ALTER TABLE push_subscriptions ENABLE ROW LEVEL SECURITY;
+-- Service Role bypasses RLS automatisch — kein öffentlicher Zugriff
+
+-- ============================================================
 -- NEU: Likes / Reaktionen (manuell im SQL Editor ausführen)
 -- ============================================================
 

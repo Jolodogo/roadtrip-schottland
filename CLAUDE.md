@@ -62,10 +62,53 @@ git push
 - Lightbox: Bilder in PostCard + Map-Popup vollflächig öffnen (Portal-basiert)
 - PDF-Anleitung: `Anleitung-HomeScreen.pdf` für iPhone + Android
 
-### 🔲 Nächste Session — geplante Verbesserungen
-- **Offline-Caching (PWA Service Worker)** via `next-pwa` — Karte bleibt bei schlechtem Netz nutzbar
-- **Bildkomprimierung beim Upload** — Canvas-Resize auf max. 1200px vor dem Upload, spart Storage + Ladezeit
-- **Push-Benachrichtigungen** — Nutzer mit installierter PWA werden bei neuem Post benachrichtigt (Web Push API + Supabase Realtime)
+### ✅ Code-Review + Fixes (Session 09.06.2026)
+- **Sicherheit:** Rate Limiting für `/api/auth` (10/15min) und `/api/reactions` (30/Stunde) via `lib/rateLimit.ts`
+- **Sicherheit:** Magic Bytes Validierung für Datei-Uploads (JPEG/PNG/WebP/HEIC)
+- **Sicherheit:** Koordinaten-Validierung in `/api/posts` POST
+- **Sicherheit:** `escapeHtml()` für alle User-Inhalte in Leaflet-Popups, `JSON.stringify()` für onclick-Args
+- **Performance:** Map-Marker-Flicker behoben — Refs für Counts, getrennte Effects (Marker nur bei Post-Änderungen, Counts inline)
+- **Performance:** OSRM via `Promise.all()` statt sequentiell
+- **Performance:** Wetter-Effect dep auf `posts[0]?.id` (kein Over-Fetching)
+- **UX:** Offline-Banner (`isOffline` State + online/offline Events)
+- **Env-Validierung:** `lib/supabase.ts` wirft Fehler wenn Keys fehlen
+- **Bug:** `loadComments` useCallback-Deklaration vor autoOpenComments-Effect
+
+### ✅ Offline-Caching via next-pwa (Session 09.06.2026)
+- `@ducanh2912/next-pwa` installiert und in `next.config.js` konfiguriert
+- Workbox RuntimeCaching: CartoDB-Tiles (CacheFirst 30 Tage), Supabase-Fotos (CacheFirst 7 Tage), `/api/posts` (StaleWhileRevalidate)
+- `.gitignore` um generierte SW-Dateien erweitert
+
+### ✅ Bildkomprimierung (Session 09.06.2026)
+- `browser-image-compression` installiert
+- `handleImageChange` async: Vorschau sofort, Komprimierung im Web Worker (max. 1200px, 85% Qualität, max 2 MB)
+- HEIC → JPEG automatisch
+- Komprimierungs-Badge + Submit-Button disabled während Komprimierung
+
+### 🔲 Nächste Session — Push-Benachrichtigungen IMPLEMENTIEREN
+**Plan:** `docs/superpowers/plans/2026-06-09-push-notifications.md`  
+**Spec:** `docs/superpowers/specs/2026-06-09-push-notifications-design.md`
+
+**Vorher manuell erledigen (Nutzer-Aufgaben):**
+1. `npx web-push generate-vapid-keys` ausführen
+2. Keys in `.env.local` eintragen: `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT=mailto:altrichter.velly@gmx.de`
+3. Dieselben Keys in Vercel Environment Variables eintragen
+4. In Supabase SQL Editor ausführen:
+   ```sql
+   CREATE TABLE push_subscriptions (
+     id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+     endpoint TEXT UNIQUE NOT NULL,
+     p256dh TEXT NOT NULL,
+     auth TEXT NOT NULL,
+     created_at TIMESTAMPTZ DEFAULT now()
+   );
+   ALTER TABLE push_subscriptions ENABLE ROW LEVEL SECURITY;
+   ```
+
+**Dann in neuer Session:**
+```
+Lies die CLAUDE.md im Ordner 'Roadtrip Schottland' und führe den Plan docs/superpowers/plans/2026-06-09-push-notifications.md aus.
+```
 
 ---
 
