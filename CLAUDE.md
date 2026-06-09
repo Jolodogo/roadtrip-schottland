@@ -123,19 +123,40 @@ git push
 - Neuer Post: `router.refresh()` nach erfolgreichem POST → Hauptseite lädt sofort neu
 - Supabase Realtime: UPDATE + DELETE Events hinzugefügt (war nur INSERT) → Änderungen sofort auf allen Geräten
 
-### 🔲 Nächste große Aufgabe — Modularisierung für Multi-Trip
-**Ziel:** App für beliebige Urlaube nutzbar — Auswahl-Maske zu Beginn (Titel, Land, Coverbild)
+### 🔲 Nächste große Aufgabe — Multi-Trip App auf eigenem VPS
 
-**Empfohlene Infrastruktur: Eigener VPS (nicht Vercel/Supabase-Free)**
-- Vercel Hobby + Supabase Free: für 1 Trip ok, für mehrere Trips → Storage- und DB-Limits
-- VPS mit Docker Compose: Next.js + Postgres — volle Kontrolle, unbegrenzt Trips, kein Vendor-Lock-in
+**Ziel:** App für beliebige Urlaube nutzbar, auf Hostinger VPS selbst gehostet
 
-**Was sich ändert (Schema):**
-- Neue Tabelle `trips` (id, title, country, cover_image_url, passcode_hash, created_at)
-- Alle bestehenden Tabellen (`posts`, `comments`, `reactions`, `push_subscriptions`) bekommen `trip_id` Fremdschlüssel
-- Startseite zeigt Trip-Auswahl oder leitet bei nur einem Trip direkt weiter
+**Infrastruktur: Hostinger KVM 2**
+- 2 CPU, 8GB RAM, 100GB Storage, 8TB Bandbreite
+- WordPress läuft bereits → neuer Nginx Server-Block für Subdomain (kein Konflikt)
+- SSL via Certbot (Let's Encrypt, bereits vorhanden)
 
-**Scope:** Großes Refactoring — alle Dateien betroffen. Vor Start: Infrastruktur-Entscheidung (VPS vs. Vercel) treffen
+**Stack (Docker Compose):**
+```
+next       → Next.js App (Port 3000, intern)
+postgres   → PostgreSQL 16 (intern)
+nginx      → Reverse Proxy + SSL (Port 80/443)
+```
+Bilder: lokales Docker Volume (`/uploads`) statt Supabase Storage
+
+**Was sich gegenüber jetzt ändert:**
+| Jetzt | VPS |
+|---|---|
+| Supabase (DB + Storage + Realtime) | PostgreSQL + lokaler Speicher + SSE |
+| Vercel Hosting | Docker auf Hostinger |
+| `git push` → Auto-Deploy | `git pull` + `docker compose up -d` |
+
+**Realtime:** Supabase WebSocket → PostgreSQL `LISTEN/NOTIFY` via Next.js Server-Sent Events (SSE) — gleiche UX  
+**Push Notifications:** identisch — VAPID Keys + `web-push` npm, Subscriptions in PostgreSQL  
+**Alle anderen Features:** 1:1 übertragbar (PWA, Karussell, Kommentare, Passcode, Lightbox etc.)
+
+**Neues Schema (Multi-Trip):**
+- Tabelle `trips` (id, title, country, cover_image_url, passcode_hash, created_at)
+- Alle Tabellen (`posts`, `comments`, `reactions`, `push_subscriptions`) + `trip_id` Fremdschlüssel
+- Startseite: Trip-Auswahl-Maske → Trip wählen → App wie bisher
+
+**Vorgehen:** Nach Schottland-Trip neues Repo anlegen (nicht umbauen), VPS-ready + Multi-Trip von Anfang an
 
 ---
 
