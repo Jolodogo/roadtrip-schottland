@@ -67,9 +67,9 @@ function StatsPanel({ posts }: { posts: Post[] }) {
     <div className="grid grid-cols-2 gap-2 p-3">
       {items.map(({ label, value, unit }) => (
         <div key={label} className="bg-[#0f1712] border border-green-900/30 rounded-lg px-3 py-2">
-          <div className="text-green-400/40 text-[11px] uppercase tracking-wider mb-0.5">{label}</div>
-          <div className="text-white font-semibold text-base leading-tight truncate">
-            {value}{unit && <span className="text-green-400/50 text-xs font-normal ml-1">{unit}</span>}
+          <div className="text-green-400/40 text-xs uppercase tracking-wider mb-0.5">{label}</div>
+          <div className="text-white font-semibold text-lg leading-tight truncate">
+            {value}{unit && <span className="text-green-400/50 text-sm font-normal ml-1">{unit}</span>}
           </div>
         </div>
       ))}
@@ -574,12 +574,26 @@ export default function HomePage() {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
     setPushState('loading');
     try {
+      const reg = await navigator.serviceWorker.ready;
+      const existing = await reg.pushManager.getSubscription();
+
+      // Abonnement deaktivieren wenn bereits aktiv
+      if (existing) {
+        await fetch('/api/push/unsubscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ endpoint: existing.endpoint }),
+        });
+        await existing.unsubscribe();
+        setPushState('idle');
+        return;
+      }
+
       const permission = await Notification.requestPermission();
       if (permission !== 'granted') {
         setPushState('denied');
         return;
       }
-      const reg = await navigator.serviceWorker.ready;
       const sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(
@@ -714,8 +728,8 @@ export default function HomePage() {
           {typeof window !== 'undefined' && 'Notification' in window && pushState !== 'denied' && (
             <button
               onClick={handlePushSubscribe}
-              disabled={pushState === 'loading' || pushState === 'subscribed'}
-              title={pushState === 'subscribed' ? 'Benachrichtigungen aktiv' : 'Benachrichtigungen aktivieren'}
+              disabled={pushState === 'loading'}
+              title={pushState === 'subscribed' ? 'Benachrichtigungen deaktivieren' : 'Benachrichtigungen aktivieren'}
               className={`flex items-center justify-center w-8 h-8 rounded-lg transition-colors ${
                 pushState === 'subscribed'
                   ? 'text-green-400'
