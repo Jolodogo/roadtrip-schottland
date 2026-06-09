@@ -119,7 +119,23 @@ git push
 - PostCard: Karussell mit ‹ › Prev/Next + Punkt-Indikatoren, Lightbox für jedes Bild
 - Bestehende Posts: zeigen weiterhin ihr einzelnes Bild (image_url)
 
-### 🔲 Keine offenen Aufgaben
+### ✅ Realtime-Aktualisierungen (Session 09.06.2026)
+- Neuer Post: `router.refresh()` nach erfolgreichem POST → Hauptseite lädt sofort neu
+- Supabase Realtime: UPDATE + DELETE Events hinzugefügt (war nur INSERT) → Änderungen sofort auf allen Geräten
+
+### 🔲 Nächste große Aufgabe — Modularisierung für Multi-Trip
+**Ziel:** App für beliebige Urlaube nutzbar — Auswahl-Maske zu Beginn (Titel, Land, Coverbild)
+
+**Empfohlene Infrastruktur: Eigener VPS (nicht Vercel/Supabase-Free)**
+- Vercel Hobby + Supabase Free: für 1 Trip ok, für mehrere Trips → Storage- und DB-Limits
+- VPS mit Docker Compose: Next.js + Postgres — volle Kontrolle, unbegrenzt Trips, kein Vendor-Lock-in
+
+**Was sich ändert (Schema):**
+- Neue Tabelle `trips` (id, title, country, cover_image_url, passcode_hash, created_at)
+- Alle bestehenden Tabellen (`posts`, `comments`, `reactions`, `push_subscriptions`) bekommen `trip_id` Fremdschlüssel
+- Startseite zeigt Trip-Auswahl oder leitet bei nur einem Trip direkt weiter
+
+**Scope:** Großes Refactoring — alle Dateien betroffen. Vor Start: Infrastruktur-Entscheidung (VPS vs. Vercel) treffen
 
 ---
 
