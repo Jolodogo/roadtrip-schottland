@@ -135,6 +135,15 @@ git push
 - Trennlinie mit "Tag X · Mo, 14. Juli" zwischen Tagesgruppen
 - `new globalThis.Map<>()` statt `new Map<>()` — verhindert TypeScript-Konflikt mit importierter Map-Komponente
 
+### ✅ Features Session 10.06.2026
+- **Karussell im Karten-Popup**: Mehrere Bilder auch im Leaflet-Popup (Prev/Next + Dots + Swipe)
+- **Strecke-KPI**: OSRM-Straßenkilometer statt Luftlinie (Callback `onRouteDistance` Map→page.tsx)
+- **Tag-Nummerierung**: Tag 1 = ältester Tag, Tag N = heute (aufsteigend sortiert, dann reversed)
+- **Reisetage-KPI**: Eindeutige Kalendertage (YYYY-MM-DD Set) statt Zeitspanne
+- **Pinch-Zoom + Pan**: Lightbox (PostCard + Map-Popup) — 2-Finger-Pinch 1×–4×, 1-Finger-Pan wenn gezoomt, `touch-action:none`
+- **Kommentare liken**: Herz-Button pro Kommentar, Tabelle `comment_reactions` (SQL ausgeführt), `/api/comment-reactions`, localStorage-Sperre
+- **Popup-Pfeil**: rechter Pfeil `right:36px` → `right:8px`
+
 ### 🔲 Nächste große Aufgabe — Multi-Trip App auf eigenem VPS
 
 **Ziel:** App für beliebige Urlaube nutzbar, auf Hostinger VPS selbst gehostet
@@ -292,6 +301,7 @@ supabase-schema.sql     # SQL für alle Tabellen (posts, comments, reactions, pu
 | `comments` | id, created_at, post_id, author_name, text | RLS: SELECT public |
 | `reactions` | id, created_at, post_id | RLS: SELECT public |
 | `push_subscriptions` | id, endpoint, p256dh, auth, created_at | RLS aktiviert, kein public SELECT |
+| `comment_reactions` | id, created_at, comment_id | RLS: SELECT + INSERT public |
 
 ---
 
