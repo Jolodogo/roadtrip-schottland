@@ -13,6 +13,7 @@ interface MapProps {
   onLikeClick?: (postId: string) => void;
   onCommentClick?: (postId: string) => void;
   onImageExpand?: (url: string) => void;
+  onRouteDistance?: (km: number) => void;
 }
 
 // XSS-Schutz: HTML-Sonderzeichen in Attributen/Textknoten escapen
@@ -99,6 +100,7 @@ export default function Map({
   onLikeClick,
   onCommentClick,
   onImageExpand,
+  onRouteDistance,
 }: MapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
@@ -283,7 +285,8 @@ export default function Map({
 
       const lineStyle = { color: '#16a34a', weight: 3, opacity: 0.7, dashArray: '8 6' };
 
-      await Promise.all(
+      // Distanzen parallel holen, summieren und als Callback zurückgeben
+      const distances = await Promise.all(
         Array.from({ length: sorted.length - 1 }, async (_, i) => {
           const a = sorted[i];
           const b = sorted[i + 1];
@@ -298,6 +301,7 @@ export default function Map({
               );
               const line = L.polyline(latlngs, lineStyle).addTo(mapInstanceRef.current);
               routeLinesRef.current.push(line);
+              return (data.routes[0].distance as number) / 1000; // Meter → km
             }
           } catch {
             const line = L.polyline(
@@ -306,10 +310,17 @@ export default function Map({
             ).addTo(mapInstanceRef.current);
             routeLinesRef.current.push(line);
           }
+          return null;
         })
       );
+
+      // Nur OSRM-Segmente summieren (null = Fallback auf Luftlinie, kein Einfluss)
+      const validDistances = distances.filter((d): d is number => d !== null);
+      if (validDistances.length > 0 && onRouteDistance) {
+        onRouteDistance(Math.round(validDistances.reduce((s, d) => s + d, 0)));
+      }
     });
-  }, [posts, isLoaded, interactive]);
+  }, [posts, isLoaded, interactive, onRouteDistance]);
 
   // Selection-Marker (Picker-Modus)
   useEffect(() => {

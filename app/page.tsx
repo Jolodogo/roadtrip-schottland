@@ -39,16 +39,22 @@ function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-function calcStats(posts: Post[]) {
+function calcStats(posts: Post[], osrmKm?: number) {
   if (posts.length === 0) return { totalKm: 0, days: 0, stops: 0, kmPerDay: 0 };
   const sorted = [...posts].sort((a, b) =>
     new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
   );
-  let km = 0;
-  for (let i = 1; i < sorted.length; i++) {
-    km += haversineKm(sorted[i - 1].latitude, sorted[i - 1].longitude, sorted[i].latitude, sorted[i].longitude);
+  // OSRM-Straßenkilometer bevorzugen, Luftlinie als Fallback
+  let totalKm: number;
+  if (osrmKm && osrmKm > 0) {
+    totalKm = osrmKm;
+  } else {
+    let km = 0;
+    for (let i = 1; i < sorted.length; i++) {
+      km += haversineKm(sorted[i - 1].latitude, sorted[i - 1].longitude, sorted[i].latitude, sorted[i].longitude);
+    }
+    totalKm = Math.round(km);
   }
-  const totalKm = Math.round(km);
   // Eindeutige Kalendertage zählen (YYYY-MM-DD) — nicht Zeitspanne
   const days = Math.max(1, new Set(sorted.map((p) => new Date(p.created_at).toISOString().slice(0, 10))).size);
   return { totalKm, days, stops: posts.length, kmPerDay: Math.round(totalKm / days) };
@@ -68,8 +74,8 @@ function groupByDay(posts: Post[]): { dateLabel: string; dayNum: number; posts: 
   return Array.from(map.values());
 }
 
-function StatsPanel({ posts }: { posts: Post[] }) {
-  const s = calcStats(posts);
+function StatsPanel({ posts, routeKm }: { posts: Post[]; routeKm?: number }) {
+  const s = calcStats(posts, routeKm);
   const items = [
     { label: 'Strecke', value: `${s.totalKm}`, unit: 'km' },
     { label: 'Reisetage', value: `${s.days}`, unit: '' },
@@ -592,6 +598,7 @@ export default function HomePage() {
   const [mapLightboxSrc, setMapLightboxSrc] = useState<string | null>(null);
   const [isOffline, setIsOffline] = useState(false);
   const [pushState, setPushState] = useState<'idle' | 'loading' | 'subscribed' | 'denied'>('idle');
+  const [routeKm, setRouteKm] = useState<number>(0);
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
   const touchStartY = useRef<number | null>(null);
@@ -850,7 +857,7 @@ export default function HomePage() {
       <div className="flex-1 flex overflow-hidden relative">
         {/* Map — z-0 + isolate: eigene Stacking-Context, Leaflet-interne z-Indizes bleiben eingeschlossen */}
         <div className="flex-1 relative z-0 isolate">
-          <Map posts={posts} commentCounts={commentCounts} likeCounts={likeCounts} onLikeClick={handleMapLikeClick} onCommentClick={handleMapCommentClick} onImageExpand={setMapLightboxSrc} />
+          <Map posts={posts} commentCounts={commentCounts} likeCounts={likeCounts} onLikeClick={handleMapLikeClick} onCommentClick={handleMapCommentClick} onImageExpand={setMapLightboxSrc} onRouteDistance={setRouteKm} />
 
           {/* Live indicator */}
           <div className="absolute top-3 left-3 z-10 flex items-center gap-1.5 bg-[#0f1712]/80 backdrop-blur px-2.5 py-1 rounded-full border border-green-900/40">
@@ -903,7 +910,7 @@ export default function HomePage() {
             <div className="px-4 py-3 border-b border-green-900/30 shrink-0">
               <span className="text-green-300/70 text-xs font-semibold uppercase tracking-wider">Reisestats</span>
             </div>
-            <StatsPanel posts={posts} />
+            <StatsPanel posts={posts} routeKm={routeKm} />
             <div className="px-4 py-3 border-t border-b border-green-900/30 shrink-0">
               <span className="text-green-300/70 text-xs font-semibold uppercase tracking-wider">Wetter</span>
             </div>
@@ -950,7 +957,7 @@ export default function HomePage() {
           {/* Letzter Post kompakt (nur im collapsed Zustand sichtbar) */}
           {!sheetExpanded && posts.length > 0 && (() => {
             const p = posts[0];
-            const s = calcStats(posts);
+            const s = calcStats(posts, routeKm);
             return (
               <>
                 <div className="px-3 py-2 flex items-center gap-3 border-t border-green-900/20">
@@ -1020,7 +1027,7 @@ export default function HomePage() {
               <div className="px-4 py-2 border-b border-green-900/30">
                 <span className="text-green-300/70 text-xs font-semibold uppercase tracking-wider">Reisestats</span>
               </div>
-              <StatsPanel posts={posts} />
+              <StatsPanel posts={posts} routeKm={routeKm} />
               {/* Wetter */}
               <div className="px-4 py-2 border-t border-b border-green-900/30">
                 <span className="text-green-300/70 text-xs font-semibold uppercase tracking-wider">Wetter</span>
