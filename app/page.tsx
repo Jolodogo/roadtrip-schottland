@@ -216,6 +216,38 @@ function PostCard({
   const [imgIndex, setImgIndex] = useState(0);
   const images = post.image_urls?.length ? post.image_urls : (post.image_url ? [post.image_url] : []);
 
+  // Pinch-Zoom + Pan für Lightbox
+  const [lbScale, setLbScale] = useState(1);
+  const [lbTranslate, setLbTranslate] = useState({ x: 0, y: 0 });
+  const lbPinchRef = useRef<{ dist: number; scale: number } | null>(null);
+  const lbPanRef = useRef<{ sx: number; sy: number; tx: number; ty: number } | null>(null);
+
+  function lbDist(t: React.TouchList) {
+    const dx = t[0].clientX - t[1].clientX;
+    const dy = t[0].clientY - t[1].clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+  function lbTouchStart(e: React.TouchEvent) {
+    if (e.touches.length === 2) {
+      lbPinchRef.current = { dist: lbDist(e.touches), scale: lbScale };
+      lbPanRef.current = null;
+    } else if (e.touches.length === 1 && lbScale > 1) {
+      lbPanRef.current = { sx: e.touches[0].clientX, sy: e.touches[0].clientY, tx: lbTranslate.x, ty: lbTranslate.y };
+    }
+  }
+  function lbTouchMove(e: React.TouchEvent) {
+    if (e.touches.length === 2 && lbPinchRef.current) {
+      const s = Math.min(4, Math.max(1, lbPinchRef.current.scale * (lbDist(e.touches) / lbPinchRef.current.dist)));
+      setLbScale(s);
+    } else if (e.touches.length === 1 && lbPanRef.current) {
+      setLbTranslate({ x: lbPanRef.current.tx + e.touches[0].clientX - lbPanRef.current.sx, y: lbPanRef.current.ty + e.touches[0].clientY - lbPanRef.current.sy });
+    }
+  }
+  function lbTouchEnd() { lbPinchRef.current = null; lbPanRef.current = null; if (lbScale < 1.05) { setLbScale(1); setLbTranslate({ x: 0, y: 0 }); } }
+  function lbReset() { setLbScale(1); setLbTranslate({ x: 0, y: 0 }); }
+  // Zoom zurücksetzen bei Bildwechsel
+  useEffect(() => { lbReset(); }, [imgIndex]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [comments, setComments] = useState<Comment[]>([]);
@@ -375,31 +407,42 @@ function PostCard({
       {/* Lightbox — via Portal in document.body, umgeht CSS-transform des Bottom Sheets */}
       {lightboxOpen && images.length > 0 && typeof document !== 'undefined' && createPortal(
         <div
-          className="fixed inset-0 z-[9999] bg-black/90 flex items-center justify-center"
-          onClick={() => setLightboxOpen(false)}
+          className="fixed inset-0 z-[9999] bg-black/90 flex items-center justify-center overflow-hidden"
+          onClick={() => { if (lbScale === 1) { setLightboxOpen(false); lbReset(); } }}
         >
           <button
-            onClick={() => setLightboxOpen(false)}
-            className="absolute top-4 right-4 bg-white/10 hover:bg-white/20 text-white rounded-full w-10 h-10 flex items-center justify-center text-lg font-light"
+            onClick={(e) => { e.stopPropagation(); setLightboxOpen(false); lbReset(); }}
+            className="absolute top-4 right-4 z-10 bg-white/10 hover:bg-white/20 text-white rounded-full w-10 h-10 flex items-center justify-center text-lg font-light"
           >✕</button>
-          {images.length > 1 && (
+          {images.length > 1 && lbScale === 1 && (
             <>
               <button onClick={(e) => { e.stopPropagation(); setImgIndex((i) => (i - 1 + images.length) % images.length); }}
-                className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/20 text-white rounded-full w-10 h-10 flex items-center justify-center text-2xl">‹</button>
+                className="absolute left-4 top-1/2 -translate-y-1/2 z-10 bg-white/10 hover:bg-white/20 text-white rounded-full w-10 h-10 flex items-center justify-center text-2xl">‹</button>
               <button onClick={(e) => { e.stopPropagation(); setImgIndex((i) => (i + 1) % images.length); }}
-                className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/20 text-white rounded-full w-10 h-10 flex items-center justify-center text-2xl">›</button>
-              <div className="absolute bottom-6 left-0 right-0 flex justify-center gap-1.5">
+                className="absolute right-4 top-1/2 -translate-y-1/2 z-10 bg-white/10 hover:bg-white/20 text-white rounded-full w-10 h-10 flex items-center justify-center text-2xl">›</button>
+              <div className="absolute bottom-6 left-0 right-0 flex justify-center gap-1.5 z-10">
                 {images.map((_, i) => (
                   <div key={i} className={`w-2 h-2 rounded-full ${i === imgIndex ? 'bg-white' : 'bg-white/30'}`} />
                 ))}
               </div>
             </>
           )}
+          {/* Zoom zurücksetzen bei Doppeltipp */}
+          {lbScale > 1 && (
+            <button onClick={(e) => { e.stopPropagation(); lbReset(); }}
+              className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 bg-white/20 text-white text-xs px-3 py-1.5 rounded-full">
+              Zoom zurücksetzen
+            </button>
+          )}
           <img
             src={images[imgIndex]}
             alt={post.title}
-            className="max-w-full max-h-full object-contain p-4"
+            className="max-w-full max-h-full object-contain p-4 select-none"
+            style={{ transform: `translate(${lbTranslate.x}px, ${lbTranslate.y}px) scale(${lbScale})`, touchAction: 'none', transition: lbPinchRef.current || lbPanRef.current ? 'none' : 'transform 0.15s ease' }}
             onClick={(e) => e.stopPropagation()}
+            onTouchStart={lbTouchStart}
+            onTouchMove={lbTouchMove}
+            onTouchEnd={lbTouchEnd}
           />
         </div>,
         document.body
@@ -599,6 +642,15 @@ export default function HomePage() {
   const [openCommentForPost, setOpenCommentForPost] = useState<string | null>(null);
   const [scrollToPost, setScrollToPost] = useState<string | null>(null);
   const [mapLightboxSrc, setMapLightboxSrc] = useState<string | null>(null);
+  const [mapLbScale, setMapLbScale] = useState(1);
+  const [mapLbTranslate, setMapLbTranslate] = useState({ x: 0, y: 0 });
+  const mapLbPinchRef = useRef<{ dist: number; scale: number } | null>(null);
+  const mapLbPanRef = useRef<{ sx: number; sy: number; tx: number; ty: number } | null>(null);
+  function mapLbDist(t: React.TouchList) { const dx = t[0].clientX - t[1].clientX; const dy = t[0].clientY - t[1].clientY; return Math.sqrt(dx*dx+dy*dy); }
+  function mapLbTouchStart(e: React.TouchEvent) { if(e.touches.length===2){mapLbPinchRef.current={dist:mapLbDist(e.touches),scale:mapLbScale};mapLbPanRef.current=null;}else if(e.touches.length===1&&mapLbScale>1){mapLbPanRef.current={sx:e.touches[0].clientX,sy:e.touches[0].clientY,tx:mapLbTranslate.x,ty:mapLbTranslate.y};} }
+  function mapLbTouchMove(e: React.TouchEvent) { if(e.touches.length===2&&mapLbPinchRef.current){setMapLbScale(Math.min(4,Math.max(1,mapLbPinchRef.current.scale*(mapLbDist(e.touches)/mapLbPinchRef.current.dist))));}else if(e.touches.length===1&&mapLbPanRef.current){setMapLbTranslate({x:mapLbPanRef.current.tx+e.touches[0].clientX-mapLbPanRef.current.sx,y:mapLbPanRef.current.ty+e.touches[0].clientY-mapLbPanRef.current.sy});} }
+  function mapLbTouchEnd() { mapLbPinchRef.current=null;mapLbPanRef.current=null;if(mapLbScale<1.05){setMapLbScale(1);setMapLbTranslate({x:0,y:0});} }
+  function mapLbReset() { setMapLbScale(1); setMapLbTranslate({x:0,y:0}); setMapLightboxSrc(null); }
   const [isOffline, setIsOffline] = useState(false);
   const [pushState, setPushState] = useState<'idle' | 'loading' | 'subscribed' | 'denied'>('idle');
   const [routeKm, setRouteKm] = useState<number>(0);
@@ -849,9 +901,21 @@ export default function HomePage() {
 
       {/* Lightbox für Map-Popup Bilder */}
       {mapLightboxSrc && typeof document !== 'undefined' && createPortal(
-        <div className="fixed inset-0 z-[9999] bg-black/90 flex items-center justify-center" onClick={() => setMapLightboxSrc(null)}>
-          <button onClick={() => setMapLightboxSrc(null)} className="absolute top-4 right-4 bg-white/10 hover:bg-white/20 text-white rounded-full w-10 h-10 flex items-center justify-center text-lg">✕</button>
-          <img src={mapLightboxSrc} className="max-w-full max-h-full object-contain p-4" onClick={(e) => e.stopPropagation()} />
+        <div className="fixed inset-0 z-[9999] bg-black/90 flex items-center justify-center overflow-hidden" onClick={() => { if (mapLbScale === 1) mapLbReset(); }}>
+          <button onClick={(e) => { e.stopPropagation(); mapLbReset(); }} className="absolute top-4 right-4 z-10 bg-white/10 hover:bg-white/20 text-white rounded-full w-10 h-10 flex items-center justify-center text-lg">✕</button>
+          {mapLbScale > 1 && (
+            <button onClick={(e) => { e.stopPropagation(); setMapLbScale(1); setMapLbTranslate({x:0,y:0}); }}
+              className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 bg-white/20 text-white text-xs px-3 py-1.5 rounded-full">
+              Zoom zurücksetzen
+            </button>
+          )}
+          <img src={mapLightboxSrc} className="max-w-full max-h-full object-contain p-4 select-none"
+            style={{ transform: `translate(${mapLbTranslate.x}px, ${mapLbTranslate.y}px) scale(${mapLbScale})`, touchAction: 'none', transition: mapLbPinchRef.current || mapLbPanRef.current ? 'none' : 'transform 0.15s ease' }}
+            onClick={(e) => e.stopPropagation()}
+            onTouchStart={mapLbTouchStart}
+            onTouchMove={mapLbTouchMove}
+            onTouchEnd={mapLbTouchEnd}
+          />
         </div>,
         document.body
       )}
