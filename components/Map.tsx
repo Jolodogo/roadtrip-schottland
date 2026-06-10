@@ -58,7 +58,7 @@ function buildPopupContent(
               style="position:absolute;left:6px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,0.55);color:white;border:none;border-radius:6px;padding:4px 8px;cursor:pointer;font-size:16px;line-height:1;">‹</button>
             <button data-postid="${pid}" data-dir="1"
               onclick="if(window.__mapCarouselNav)window.__mapCarouselNav(this.dataset.postid,1)"
-              style="position:absolute;right:36px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,0.55);color:white;border:none;border-radius:6px;padding:4px 8px;cursor:pointer;font-size:16px;line-height:1;">›</button>
+              style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,0.55);color:white;border:none;border-radius:6px;padding:4px 8px;cursor:pointer;font-size:16px;line-height:1;">›</button>
             <div style="position:absolute;bottom:6px;left:50%;transform:translateX(-50%);display:flex;gap:4px;">
               ${images.map((_, i) => `<span class="ppd-${pid}" style="width:5px;height:5px;border-radius:50%;background:white;opacity:${i === 0 ? '1' : '0.35'};display:inline-block;transition:opacity .2s;"></span>`).join('')}
             </div>
@@ -154,6 +154,27 @@ export default function Map({
           onLocationSelect(e.latlng.lat, e.latlng.lng);
         });
       }
+
+      // Swipe-Geste für Popup-Karussell — Touch-Listener nach Popup-Öffnung anhängen
+      map.on('popupopen', () => {
+        setTimeout(() => {
+          document.querySelectorAll('[id^="ppc-"]').forEach((el) => {
+            if ((el as HTMLElement).dataset.swipe) return; // Kein doppelter Listener
+            (el as HTMLElement).dataset.swipe = '1';
+            const postId = el.id.replace('ppc-', '');
+            let startX = 0;
+            el.addEventListener('touchstart', (e) => {
+              startX = (e as TouchEvent).touches[0].clientX;
+            }, { passive: true });
+            el.addEventListener('touchend', (e) => {
+              const dx = (e as TouchEvent).changedTouches[0].clientX - startX;
+              if (Math.abs(dx) > 40 && (window as any).__mapCarouselNav) {
+                (window as any).__mapCarouselNav(postId, dx < 0 ? 1 : -1);
+              }
+            }, { passive: true });
+          });
+        }, 50);
+      });
     });
 
     return () => {
