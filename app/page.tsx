@@ -678,7 +678,8 @@ export default function HomePage() {
   const [likeCounts, setLikeCounts] = useState<Record<string, number>>({});
   const [openCommentForPost, setOpenCommentForPost] = useState<string | null>(null);
   const [scrollToPost, setScrollToPost] = useState<string | null>(null);
-  const [mapLightboxSrc, setMapLightboxSrc] = useState<string | null>(null);
+  const [mapLbImages, setMapLbImages] = useState<string[]>([]);
+  const [mapLbIndex, setMapLbIndex] = useState(0);
   const [mapLbScale, setMapLbScale] = useState(1);
   const [mapLbTranslate, setMapLbTranslate] = useState({ x: 0, y: 0 });
   const mapLbPinchRef = useRef<{ dist: number; scale: number } | null>(null);
@@ -687,7 +688,7 @@ export default function HomePage() {
   function mapLbTouchStart(e: React.TouchEvent) { if(e.touches.length===2){mapLbPinchRef.current={dist:mapLbDist(e.touches),scale:mapLbScale};mapLbPanRef.current=null;}else if(e.touches.length===1&&mapLbScale>1){mapLbPanRef.current={sx:e.touches[0].clientX,sy:e.touches[0].clientY,tx:mapLbTranslate.x,ty:mapLbTranslate.y};} }
   function mapLbTouchMove(e: React.TouchEvent) { if(e.touches.length===2&&mapLbPinchRef.current){setMapLbScale(Math.min(4,Math.max(1,mapLbPinchRef.current.scale*(mapLbDist(e.touches)/mapLbPinchRef.current.dist))));}else if(e.touches.length===1&&mapLbPanRef.current){setMapLbTranslate({x:mapLbPanRef.current.tx+e.touches[0].clientX-mapLbPanRef.current.sx,y:mapLbPanRef.current.ty+e.touches[0].clientY-mapLbPanRef.current.sy});} }
   function mapLbTouchEnd() { mapLbPinchRef.current=null;mapLbPanRef.current=null;if(mapLbScale<1.05){setMapLbScale(1);setMapLbTranslate({x:0,y:0});} }
-  function mapLbReset() { setMapLbScale(1); setMapLbTranslate({x:0,y:0}); setMapLightboxSrc(null); }
+  function mapLbReset() { setMapLbScale(1); setMapLbTranslate({x:0,y:0}); setMapLbImages([]); setMapLbIndex(0); }
   const [isOffline, setIsOffline] = useState(false);
   const [pushState, setPushState] = useState<'idle' | 'loading' | 'subscribed' | 'denied'>('idle');
   const [routeKm, setRouteKm] = useState<number>(0);
@@ -937,16 +938,29 @@ export default function HomePage() {
       )}
 
       {/* Lightbox für Map-Popup Bilder */}
-      {mapLightboxSrc && typeof document !== 'undefined' && createPortal(
+      {mapLbImages.length > 0 && typeof document !== 'undefined' && createPortal(
         <div className="fixed inset-0 z-[9999] bg-black/90 flex items-center justify-center overflow-hidden" onClick={() => { if (mapLbScale === 1) mapLbReset(); }}>
           <button onClick={(e) => { e.stopPropagation(); mapLbReset(); }} className="absolute top-4 right-4 z-10 bg-white/10 hover:bg-white/20 text-white rounded-full w-10 h-10 flex items-center justify-center text-lg">✕</button>
+          {mapLbImages.length > 1 && mapLbScale === 1 && (
+            <>
+              <button onClick={(e) => { e.stopPropagation(); setMapLbIndex((i) => (i - 1 + mapLbImages.length) % mapLbImages.length); setMapLbTranslate({x:0,y:0}); }}
+                className="absolute left-4 top-1/2 -translate-y-1/2 z-10 bg-white/10 hover:bg-white/20 text-white rounded-full w-10 h-10 flex items-center justify-center text-2xl">‹</button>
+              <button onClick={(e) => { e.stopPropagation(); setMapLbIndex((i) => (i + 1) % mapLbImages.length); setMapLbTranslate({x:0,y:0}); }}
+                className="absolute right-4 top-1/2 -translate-y-1/2 z-10 bg-white/10 hover:bg-white/20 text-white rounded-full w-10 h-10 flex items-center justify-center text-2xl">›</button>
+              <div className="absolute bottom-6 left-0 right-0 flex justify-center gap-1.5 z-10">
+                {mapLbImages.map((_, i) => (
+                  <div key={i} className={`w-2 h-2 rounded-full ${i === mapLbIndex ? 'bg-white' : 'bg-white/30'}`} />
+                ))}
+              </div>
+            </>
+          )}
           {mapLbScale > 1 && (
             <button onClick={(e) => { e.stopPropagation(); setMapLbScale(1); setMapLbTranslate({x:0,y:0}); }}
               className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 bg-white/20 text-white text-xs px-3 py-1.5 rounded-full">
               Zoom zurücksetzen
             </button>
           )}
-          <img src={mapLightboxSrc} className="max-w-full max-h-full object-contain p-4 select-none"
+          <img src={mapLbImages[mapLbIndex]} className="max-w-full max-h-full object-contain p-4 select-none"
             style={{ transform: `translate(${mapLbTranslate.x}px, ${mapLbTranslate.y}px) scale(${mapLbScale})`, touchAction: 'none', transition: mapLbPinchRef.current || mapLbPanRef.current ? 'none' : 'transform 0.15s ease' }}
             onClick={(e) => e.stopPropagation()}
             onTouchStart={mapLbTouchStart}
@@ -961,7 +975,7 @@ export default function HomePage() {
       <div className="flex-1 flex overflow-hidden relative">
         {/* Map — z-0 + isolate: eigene Stacking-Context, Leaflet-interne z-Indizes bleiben eingeschlossen */}
         <div className="flex-1 relative z-0 isolate">
-          <Map posts={posts} commentCounts={commentCounts} likeCounts={likeCounts} onLikeClick={handleMapLikeClick} onCommentClick={handleMapCommentClick} onImageExpand={setMapLightboxSrc} onRouteDistance={setRouteKm} />
+          <Map posts={posts} commentCounts={commentCounts} likeCounts={likeCounts} onLikeClick={handleMapLikeClick} onCommentClick={handleMapCommentClick} onImageExpand={(_url, images, index) => { setMapLbImages(images.length ? images : [_url]); setMapLbIndex(index ?? 0); setMapLbScale(1); setMapLbTranslate({x:0,y:0}); }} onRouteDistance={setRouteKm} />
 
           {/* Live indicator */}
           <div className="absolute top-3 left-3 z-10 flex items-center gap-1.5 bg-[#0f1712]/80 backdrop-blur px-2.5 py-1 rounded-full border border-green-900/40">

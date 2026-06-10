@@ -12,7 +12,7 @@ interface MapProps {
   likeCounts?: Record<string, number>;
   onLikeClick?: (postId: string) => void;
   onCommentClick?: (postId: string) => void;
-  onImageExpand?: (url: string) => void;
+  onImageExpand?: (url: string, images: string[], index: number) => void;
   onRouteDistance?: (km: number) => void;
 }
 
@@ -65,7 +65,7 @@ function buildPopupContent(
             </div>
           ` : ''}
           <button data-postid="${pid}"
-            onclick="if(window.__mapImageExpand){var el=document.getElementById('ppi-${pid}');if(el)window.__mapImageExpand(el.src);}"
+            onclick="if(window.__mapImageExpand){var c=document.getElementById('ppc-${pid}');var imgs=c?c.dataset.imgs.split('|'):[];var idx=c?parseInt(c.dataset.idx||'0'):0;var el=document.getElementById('ppi-${pid}');if(el)window.__mapImageExpand(el.src,imgs,idx);}"
             style="position:absolute;bottom:8px;right:8px;background:rgba(0,0,0,0.55);color:white;border:none;border-radius:8px;padding:5px 7px;cursor:pointer;line-height:1;">⤢</button>
         </div>
       ` : ''}
