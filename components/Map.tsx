@@ -37,17 +37,35 @@ function buildPopupContent(
   const likeCount = likeCounts?.[post.id] ?? 0;
   const commentCount = commentCounts?.[post.id] ?? 0;
 
+  // Alle Bilder sammeln (Rückwärtskompatibilität: image_urls bevorzugt, sonst image_url)
+  const images = post.image_urls?.length ? post.image_urls : (post.image_url ? [post.image_url] : []);
+  const hasImages = images.length > 0;
+  const multiImg = images.length > 1;
+  // Bilder pipe-separiert im data-Attribut — Browser dekodiert HTML-Entities beim Lesen zurück
+  const imgsData = images.map((u) => escapeHtml(u)).join('|');
+  const pid = post.id; // UUID, sicher als HTML-ID
+
   return `
     <div style="font-family: Inter, sans-serif; color: #f0f8f0; min-width: 200px;">
-      ${post.image_url ? `
-        <div style="position:relative;margin:-1px -1px 0;overflow:hidden;border-radius:12px 12px 0 0;">
-          <img src="${escapeHtml(post.image_url)}" alt="${escapeHtml(post.title)}"
+      ${hasImages ? `
+        <div id="ppc-${pid}" data-imgs="${imgsData}" data-idx="0"
+          style="position:relative;margin:-1px -1px 0;overflow:hidden;border-radius:12px 12px 0 0;">
+          <img id="ppi-${pid}" src="${escapeHtml(images[0])}" alt="${escapeHtml(post.title)}"
             style="width:100%;height:160px;object-fit:cover;display:block;" />
-          <button
-            data-imgurl="${escapeHtml(post.image_url)}"
-            onclick="if(window.__mapImageExpand)window.__mapImageExpand(this.dataset.imgurl)"
-            style="position:absolute;bottom:8px;right:8px;background:rgba(0,0,0,0.55);color:white;border:none;border-radius:8px;padding:5px 7px;cursor:pointer;line-height:1;"
-          >⤢</button>
+          ${multiImg ? `
+            <button data-postid="${pid}" data-dir="-1"
+              onclick="if(window.__mapCarouselNav)window.__mapCarouselNav(this.dataset.postid,-1)"
+              style="position:absolute;left:6px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,0.55);color:white;border:none;border-radius:6px;padding:4px 8px;cursor:pointer;font-size:16px;line-height:1;">‹</button>
+            <button data-postid="${pid}" data-dir="1"
+              onclick="if(window.__mapCarouselNav)window.__mapCarouselNav(this.dataset.postid,1)"
+              style="position:absolute;right:36px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,0.55);color:white;border:none;border-radius:6px;padding:4px 8px;cursor:pointer;font-size:16px;line-height:1;">›</button>
+            <div style="position:absolute;bottom:6px;left:50%;transform:translateX(-50%);display:flex;gap:4px;">
+              ${images.map((_, i) => `<span class="ppd-${pid}" style="width:5px;height:5px;border-radius:50%;background:white;opacity:${i === 0 ? '1' : '0.35'};display:inline-block;transition:opacity .2s;"></span>`).join('')}
+            </div>
+          ` : ''}
+          <button data-postid="${pid}"
+            onclick="if(window.__mapImageExpand){var el=document.getElementById('ppi-${pid}');if(el)window.__mapImageExpand(el.src);}"
+            style="position:absolute;bottom:8px;right:8px;background:rgba(0,0,0,0.55);color:white;border:none;border-radius:8px;padding:5px 7px;cursor:pointer;line-height:1;">⤢</button>
         </div>
       ` : ''}
       <div style="padding: 12px;">
@@ -151,6 +169,21 @@ export default function Map({
     (window as any).__mapLikeClick = onLikeClick;
     (window as any).__mapCommentClick = onCommentClick;
     (window as any).__mapImageExpand = onImageExpand;
+
+    // Carousel-Navigation im Popup — reines DOM-Manipulation ohne React
+    (window as any).__mapCarouselNav = (postId: string, dir: number) => {
+      const container = document.getElementById(`ppc-${postId}`);
+      if (!container) return;
+      const imgs = container.dataset.imgs!.split('|');
+      const newIdx = (parseInt(container.dataset.idx ?? '0') + dir + imgs.length) % imgs.length;
+      container.dataset.idx = String(newIdx);
+      const imgEl = document.getElementById(`ppi-${postId}`) as HTMLImageElement | null;
+      if (imgEl) imgEl.src = imgs[newIdx];
+      // Dots aktualisieren
+      container.querySelectorAll(`span.ppd-${postId}`).forEach((dot, i) => {
+        (dot as HTMLElement).style.opacity = i === newIdx ? '1' : '0.35';
+      });
+    };
   }, [onLikeClick, onCommentClick, onImageExpand]);
 
   // Marker neu aufbauen NUR wenn Posts sich ändern (nicht bei Count-Updates)
