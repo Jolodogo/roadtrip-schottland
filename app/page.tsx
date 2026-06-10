@@ -265,6 +265,8 @@ function PostCard({
     if (saved) setAuthorName(saved);
   }, []);
 
+  const [commentLikes, setCommentLikes] = useState<Record<string, number>>({});
+
   const loadComments = useCallback(async () => {
     setCommentsLoading(true);
     const res = await fetch(`/api/comments?post_id=${post.id}`);
@@ -272,6 +274,14 @@ function PostCard({
       const data: Comment[] = await res.json();
       setComments(data);
       setCommentCount(data.length);
+      // Like-Counts für diese Kommentare laden
+      if (data.length > 0) {
+        const ids = data.map((c) => c.id).join(',');
+        fetch(`/api/comment-reactions?comment_ids=${ids}`)
+          .then((r) => r.json())
+          .then(setCommentLikes)
+          .catch(() => {});
+      }
       setCommentsLoaded(true);
     }
     setCommentsLoading(false);
@@ -321,6 +331,19 @@ function PostCard({
       setSubmitError(d.error || 'Fehler beim Senden');
     }
     setSubmitting(false);
+  }
+
+  async function handleCommentLike(commentId: string) {
+    if (localStorage.getItem(`liked_comment_${commentId}`)) return;
+    const res = await fetch('/api/comment-reactions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ comment_id: commentId }),
+    });
+    if (res.ok) {
+      setCommentLikes((prev) => ({ ...prev, [commentId]: (prev[commentId] || 0) + 1 }));
+      localStorage.setItem(`liked_comment_${commentId}`, '1');
+    }
   }
 
   async function handleDelete() {
@@ -580,19 +603,33 @@ function PostCard({
               {comments.length === 0 ? (
                 <p className="text-green-400/30 text-xs text-center py-1">Noch kein Kommentar – sei der erste!</p>
               ) : (
-                comments.map((c) => (
-                  <div key={c.id} className="bg-[#1a2e1f] rounded-lg px-3 py-2">
-                    <div className="flex items-baseline gap-2 mb-0.5">
-                      <span className="text-green-300/80 text-xs font-semibold">{c.author_name}</span>
-                      <span className="text-green-400/30 text-[10px]">
-                        {new Date(c.created_at).toLocaleDateString('de-DE', {
-                          day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
-                        })}
-                      </span>
+                comments.map((c) => {
+                  const liked = !!localStorage.getItem(`liked_comment_${c.id}`);
+                  const likes = commentLikes[c.id] || 0;
+                  return (
+                    <div key={c.id} className="bg-[#1a2e1f] rounded-lg px-3 py-2">
+                      <div className="flex items-baseline gap-2 mb-0.5">
+                        <span className="text-green-300/80 text-xs font-semibold">{c.author_name}</span>
+                        <span className="text-green-400/30 text-[10px]">
+                          {new Date(c.created_at).toLocaleDateString('de-DE', {
+                            day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
+                          })}
+                        </span>
+                      </div>
+                      <div className="flex items-end justify-between gap-2">
+                        <p className="text-green-100/70 text-xs leading-relaxed flex-1">{c.text}</p>
+                        <button
+                          onClick={() => handleCommentLike(c.id)}
+                          disabled={liked}
+                          className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full shrink-0 transition-colors ${liked ? 'text-red-400/70 cursor-default' : 'text-green-400/40 hover:text-red-400/70'}`}
+                        >
+                          <Heart size={10} className={liked ? 'fill-red-400/70 stroke-red-400/70' : ''} />
+                          {likes > 0 && <span>{likes}</span>}
+                        </button>
+                      </div>
                     </div>
-                    <p className="text-green-100/70 text-xs leading-relaxed">{c.text}</p>
-                  </div>
-                ))
+                  );
+                })
               )}
 
               {/* Kommentar schreiben */}
