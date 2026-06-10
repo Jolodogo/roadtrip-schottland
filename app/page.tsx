@@ -67,11 +67,14 @@ function groupByDay(posts: Post[]): { dateLabel: string; dayNum: number; posts: 
     const d = new Date(post.created_at);
     const key = d.toISOString().slice(0, 10); // YYYY-MM-DD
     const dateLabel = d.toLocaleDateString('de-DE', { weekday: 'short', day: 'numeric', month: 'long' });
-    if (!map.has(key)) map.set(key, { dateLabel, dayNum: map.size + 1, posts: [] });
+    if (!map.has(key)) map.set(key, { dateLabel, dayNum: 0, posts: [] });
     map.get(key)!.posts.push(post);
   });
-  // Neuester Tag zuerst (posts kommen bereits desc sortiert rein)
-  return Array.from(map.values());
+  // Aufsteigend sortieren → Tag 1 = ältester Tag, Tag N = heute
+  const asc = Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b));
+  asc.forEach(([, group], i) => { group.dayNum = i + 1; });
+  // Für Anzeige umdrehen: neuester Tag oben
+  return asc.map(([, g]) => g).reverse();
 }
 
 function StatsPanel({ posts, routeKm }: { posts: Post[]; routeKm?: number }) {
